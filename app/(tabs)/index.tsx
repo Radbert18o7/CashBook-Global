@@ -65,6 +65,15 @@ export default function HomeScreen() {
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
+        <Link href="/firebase-test">
+          <Link.Trigger>
+            <ThemedText type="subtitle">Firebase test</ThemedText>
+          </Link.Trigger>
+          <Link.Preview />
+        </Link>
+        <ThemedText>Open the Firebase test screen to confirm Auth and Firestore are reachable.</ThemedText>
+      </ThemedView>
+      <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
         <ThemedText>
           {`When you're ready, run `}
