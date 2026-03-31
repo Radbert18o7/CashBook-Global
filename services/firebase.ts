@@ -1,7 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
-  getReactNativePersistence,
   initializeAuth,
   type Auth,
   type AuthError,
@@ -14,7 +12,11 @@ import {
   getFirestore,
   serverTimestamp,
   setDoc,
+  enableIndexedDbPersistence,
+  enableMultiTabIndexedDbPersistence,
 } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
+import { Platform } from 'react-native';
 
 import { firebaseConfig, isFirebaseConfigPlaceholder } from './firebaseConfig';
 
@@ -35,14 +37,34 @@ function ensureAuth(): Auth {
   try {
     return getAuth(firebaseApp);
   } catch {
-    return initializeAuth(firebaseApp, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
+    // Default persistence is fine for this scaffold.
+    // React Native persistence strategy can be implemented later.
+    return initializeAuth(firebaseApp);
   }
 }
 
 export const firebaseAuth = ensureAuth();
 export const firestore = getFirestore(firebaseApp);
+
+/** Same region as `functions/src/index.ts` (`setGlobalOptions`). */
+export const firebaseFunctions = getFunctions(firebaseApp, 'us-central1');
+
+// Firestore offline persistence (web only).
+// React Native doesn't use IndexedDB, so this is safe to guard by platform.
+if (Platform.OS === 'web') {
+  // Fire-and-forget: if it fails (e.g. multiple tabs), Firestore still works.
+  void (async () => {
+    try {
+      await enableIndexedDbPersistence(firestore);
+    } catch {
+      try {
+        await enableMultiTabIndexedDbPersistence(firestore);
+      } catch {
+        // Ignore.
+      }
+    }
+  })();
+}
 
 function getFirebaseErrorCode(err: unknown): string | null {
   if (!err || typeof err !== 'object') return null;
