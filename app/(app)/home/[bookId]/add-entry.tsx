@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ScreenHeader } from '@/components/common/ScreenHeader';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
-import { ThemedView } from '@/components/themed-view';
+import { useColors } from '@/hooks/useColors';
+import { useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useEntryStore } from '@/store/entryStore';
 import { createEntry } from '@/services/entryService';
@@ -16,6 +26,9 @@ import * as ImagePicker from 'expo-image-picker';
 
 export default function AddEntryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const theme = useSettingsTheme();
   const params = useLocalSearchParams<{ bookId: string; type?: string }>();
   /** `/home/index/...` wrongly sets `bookId` to the literal "index" — use `/home` for the book list, not `/home/index`. */
   const rawId = params.bookId;
@@ -166,103 +179,210 @@ export default function AddEntryScreen() {
     }
   }
 
+  const footerPad = 16 + insets.bottom;
+  const scrollBottomPad = 88 + insets.bottom;
+
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title" style={[styles.title, type === 'CASH_IN' ? styles.cashIn : styles.cashOut]}>
-        {title}
-      </ThemedText>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <ScreenHeader title={title} theme={theme} colors={colors} />
 
-      <ThemedText style={styles.label}>Amount</ThemedText>
-      <ThemedTextInput
-        value={amountText}
-        onChangeText={setAmountText}
-        keyboardType="decimal-pad"
-        placeholder="0.00"
-        style={styles.input}
-      />
-
-      <ThemedText style={styles.label}>Contact</ThemedText>
-      <ThemedTextInput value={contactName} onChangeText={setContactName} placeholder="Optional" style={styles.input} />
-
-      <ThemedText style={styles.label}>Remark</ThemedText>
-      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-        <View style={{ flex: 1 }}>
-          <ThemedTextInput
-            value={remark}
-            onChangeText={setRemark}
-            placeholder="Optional"
-            style={[styles.input, { minHeight: 84 }]}
-            multiline
-          />
-        </View>
-        <Pressable
-          onPress={isListening ? stopVoice : startVoice}
-          style={({ pressed }) => [
-            styles.micBtn,
-            isListening && styles.micBtnActive,
-            pressed && styles.pressed,
-          ]}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPad }]}
         >
-          <ThemedText type="defaultSemiBold">{isListening ? '...' : 'Mic'}</ThemedText>
-        </Pressable>
-      </View>
+          <View
+            style={[
+              styles.typePill,
+              {
+                alignSelf: 'flex-start',
+                backgroundColor: type === 'CASH_IN' ? 'rgba(16,185,129,0.18)' : 'rgba(244,63,94,0.14)',
+                borderColor: type === 'CASH_IN' ? colors.success : colors.danger,
+              },
+            ]}
+          >
+            <ThemedText type="defaultSemiBold" style={{ color: type === 'CASH_IN' ? colors.success : colors.danger }}>
+              {type === 'CASH_IN' ? 'Cash In' : 'Cash Out'}
+            </ThemedText>
+          </View>
 
-      {!!voiceStatus && (
-        <ThemedText style={styles.voiceStatus} lightColor="#10B981" darkColor="#10B981">
-          {voiceStatus}
-        </ThemedText>
-      )}
+          <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>Transaction</ThemedText>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <ThemedText style={[styles.fieldLabel, { color: colors.textPrimary }]}>Amount</ThemedText>
+            <ThemedText style={[styles.helper, { color: colors.textTertiary }]}>
+              Required · use a positive number (decimals allowed).
+            </ThemedText>
+            <ThemedTextInput
+              value={amountText}
+              onChangeText={setAmountText}
+              keyboardType="decimal-pad"
+              placeholder="0.00"
+              accessibilityLabel="Amount"
+              style={styles.input}
+            />
+          </View>
 
-      <Pressable onPress={pickImage} style={({ pressed }) => [styles.attachBtn, pressed && styles.pressed]}>
-        <ThemedText type="defaultSemiBold">{'Attach Image'}</ThemedText>
-      </Pressable>
+          <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>Details</ThemedText>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <ThemedText style={[styles.fieldLabel, { color: colors.textPrimary }]}>Contact</ThemedText>
+            <ThemedText style={[styles.helper, { color: colors.textTertiary }]}>Optional</ThemedText>
+            <ThemedTextInput
+              value={contactName}
+              onChangeText={setContactName}
+              placeholder="Name or reference"
+              accessibilityLabel="Contact name"
+              style={styles.input}
+            />
 
-      {!!imageUri && (
-        <View style={styles.thumbWrap}>
-          <Image source={{ uri: imageUri }} style={styles.thumb} />
-          <ThemedText style={styles.thumbSub}>{'Image attached'}</ThemedText>
-        </View>
-      )}
+            <ThemedText style={[styles.fieldLabel, styles.fieldLabelSpaced, { color: colors.textPrimary }]}>
+              Remark
+            </ThemedText>
+            <ThemedText style={[styles.helper, { color: colors.textTertiary }]}>
+              Optional · tap Mic to dictate
+            </ThemedText>
+            <View style={styles.remarkRow}>
+              <View style={styles.remarkInputWrap}>
+                <ThemedTextInput
+                  value={remark}
+                  onChangeText={setRemark}
+                  placeholder="Note for this entry"
+                  style={[styles.input, { minHeight: 84 }]}
+                  multiline
+                  accessibilityLabel="Remark"
+                />
+              </View>
+              <Pressable
+                onPress={isListening ? stopVoice : startVoice}
+                style={({ pressed }) => [
+                  styles.micBtn,
+                  { borderColor: colors.border },
+                  isListening && {
+                    borderColor: colors.primary,
+                    backgroundColor: colors.primaryLight,
+                  },
+                  pressed && styles.pressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={isListening ? 'Stop voice input' : 'Start voice input'}
+              >
+                <ThemedText type="defaultSemiBold">{isListening ? '...' : 'Mic'}</ThemedText>
+              </Pressable>
+            </View>
+          </View>
 
-      {!!error && (
-        <ThemedText lightColor="#F43F5E" darkColor="#F43F5E" style={styles.error}>
-          {error}
-        </ThemedText>
-      )}
+          {!!voiceStatus && (
+            <ThemedText style={[styles.voiceStatus, { color: colors.success }]}>{voiceStatus}</ThemedText>
+          )}
 
-      <View style={styles.stickyFooter}>
+          <Pressable
+            onPress={pickImage}
+            style={({ pressed }) => [
+              styles.attachBtn,
+              { borderColor: colors.border },
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Attach image"
+          >
+            <ThemedText type="defaultSemiBold">Attach Image</ThemedText>
+          </Pressable>
+
+          {!!imageUri && (
+            <View style={styles.thumbWrap}>
+              <Image source={{ uri: imageUri }} style={[styles.thumb, { borderColor: colors.border }]} />
+              <ThemedText style={[styles.thumbSub, { color: colors.textSecondary }]}>Image attached</ThemedText>
+            </View>
+          )}
+
+          {!!error && (
+            <ThemedText style={[styles.error, { color: colors.danger }]} accessibilityLiveRegion="polite">
+              {error}
+            </ThemedText>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <View style={[styles.stickyFooter, { paddingBottom: footerPad }]}>
         <Pressable
           disabled={saving}
           onPress={handleSave}
-          style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed, saving && styles.disabled]}
+          style={({ pressed }) => [
+            styles.saveBtn,
+            { backgroundColor: colors.primary },
+            pressed && styles.pressed,
+            saving && styles.disabled,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={saving ? 'Saving entry' : 'Save entry'}
         >
-          <ThemedText type="defaultSemiBold">{saving ? 'Saving...' : 'Save'}</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.saveBtnText}>
+            {saving ? 'Saving...' : 'Save'}
+          </ThemedText>
         </Pressable>
       </View>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 10 },
-  title: { textAlign: 'left', marginTop: 10 },
-  cashIn: { color: '#10B981' },
-  cashOut: { color: '#F43F5E' },
-  label: { opacity: 0.85, marginTop: 6 },
+  root: { flex: 1 },
+  flex: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 8, gap: 6 },
+  typePill: {
+    marginTop: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  sectionLabel: {
+    marginTop: 14,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  card: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    gap: 4,
+  },
+  fieldLabel: { fontSize: 15, fontWeight: '600', marginTop: 2 },
+  fieldLabelSpaced: { marginTop: 14 },
+  helper: { fontSize: 12, marginBottom: 6 },
   input: {
     borderRadius: 8,
   },
-  error: { marginTop: 6, textAlign: 'center' },
-  stickyFooter: { position: 'absolute', left: 16, right: 16, bottom: 16 },
-  saveBtn: { backgroundColor: '#4F46E5', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  remarkRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  remarkInputWrap: { flex: 1 },
+  error: { marginTop: 8, textAlign: 'center' },
+  stickyFooter: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 0,
+  },
+  saveBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  saveBtnText: { color: '#FFFFFF' },
   pressed: { opacity: 0.9 },
   disabled: { opacity: 0.7 },
-  micBtn: { width: 70, borderRadius: 12, paddingVertical: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(127,127,127,0.35)', alignItems: 'center' },
-  micBtnActive: { borderColor: '#4F46E5', backgroundColor: 'rgba(79,70,229,0.12)' },
-  voiceStatus: { marginTop: -4, opacity: 0.9, fontWeight: '600' },
-  attachBtn: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(127,127,127,0.35)', paddingVertical: 12, alignItems: 'center' },
+  micBtn: {
+    width: 70,
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 22,
+  },
+  voiceStatus: { marginTop: 4, fontWeight: '600' },
+  attachBtn: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingVertical: 12, alignItems: 'center' },
   thumbWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
-  thumb: { width: 56, height: 56, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(127,127,127,0.25)' },
-  thumbSub: { opacity: 0.7 },
+  thumb: { width: 56, height: 56, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
+  thumbSub: { opacity: 0.85 },
 });
-
