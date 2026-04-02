@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/common/ScreenHeader';
 import { SettingsCard } from '@/components/settings/SettingsCard';
 import { ThemedTextInput } from '@/components/themed-text-input';
+import { useColors } from '@/hooks/useColors';
 import { type SettingsTheme, useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { useBusinessStore } from '@/store/businessStore';
 import { getBusiness, updateBusiness } from '@/services/businessService';
@@ -35,6 +36,7 @@ function initials(name: string) {
 export default function BusinessProfileScreen() {
   const { t } = useTranslation();
   const theme = useSettingsTheme();
+  const colors = useColors();
   const { currentBusiness, updateBusiness: patchStore } = useBusinessStore();
 
   const [name, setName] = useState('');
@@ -142,23 +144,24 @@ export default function BusinessProfileScreen() {
   async function save() {
     if (!currentBusiness?.id) return;
     setSaving(true);
+    const opt = (s: string) => (s.trim() ? s.trim() : '');
     try {
       await updateBusiness(currentBusiness.id, {
         name: name.trim(),
-        address: address.trim() ? address.trim() : null,
-        phone: phone.trim() ? phone.trim() : null,
-        website: website.trim() ? website.trim() : null,
-        currency_code: currencyCode.trim() ? currencyCode.trim() : null,
-        timezone: timezone.trim() ? timezone.trim() : null,
+        address: opt(address),
+        phone: opt(phone),
+        website: opt(website),
+        currency_code: opt(currencyCode),
+        timezone: opt(timezone),
         logo_url: logoUrl ?? null,
       });
       patchStore(currentBusiness.id, {
         name: name.trim(),
-        address: address.trim() || undefined,
-        phone: phone.trim() || undefined,
-        website: website.trim() || undefined,
-        currency_code: currencyCode.trim() || undefined,
-        timezone: timezone.trim() || undefined,
+        address: opt(address),
+        phone: opt(phone),
+        website: opt(website),
+        currency_code: opt(currencyCode),
+        timezone: opt(timezone),
         logo_url: logoUrl ?? undefined,
       });
       Alert.alert('Saved', 'Business profile saved!');
@@ -173,7 +176,7 @@ export default function BusinessProfileScreen() {
   if (!currentBusiness?.id) {
     return (
       <View style={[styles.root, { backgroundColor: theme.screenBg }]}>
-        <ScreenHeader title="Business Profile" theme={theme} />
+        <ScreenHeader title="Business Profile" theme={theme} colors={colors} />
         <Text style={{ color: theme.subtitle, padding: 16 }}>{t('common.loading')}</Text>
       </View>
     );
@@ -184,6 +187,7 @@ export default function BusinessProfileScreen() {
       <ScreenHeader
         title="Business Profile"
         theme={theme}
+        colors={colors}
         rightLabel={saving ? '…' : 'Save'}
         rightAction={() => {
           if (!saving) void save();
@@ -198,11 +202,11 @@ export default function BusinessProfileScreen() {
               {logoUrl ? (
                 <Image source={{ uri: logoUrl }} style={styles.logoBig} contentFit="cover" />
               ) : (
-                <View style={[styles.logoPh, { backgroundColor: '#4F46E5' }]}>
+                <View style={[styles.logoPh, { backgroundColor: colors.primary }]}>
                   <Text style={styles.logoPhTxt}>{initials(name || currentBusiness.name)}</Text>
                 </View>
               )}
-              <View style={styles.camFab}>
+              <View style={[styles.camFab, { backgroundColor: colors.primary }]}>
                 <Ionicons name="camera" size={18} color="#fff" />
               </View>
             </View>
@@ -252,7 +256,7 @@ export default function BusinessProfileScreen() {
               <Ionicons name="chevron-forward" size={18} color={theme.chevron} />
             </Pressable>
             <Pressable style={styles.pickRow} onPress={() => setTzOpen(true)}>
-              <Ionicons name="time-outline" size={22} color="#4F46E5" />
+              <Ionicons name="time-outline" size={22} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={[styles.pickLabel, { color: theme.subtitle }]}>Timezone</Text>
                 <Text style={[styles.pickVal, { color: theme.title }]} numberOfLines={2}>
@@ -294,7 +298,10 @@ export default function BusinessProfileScreen() {
           <Pressable
             onPress={() => void save()}
             disabled={saving}
-            style={({ pressed }) => [styles.saveWide, { opacity: saving ? 0.75 : pressed ? 0.92 : 1 }]}
+            style={({ pressed }) => [
+              styles.saveWide,
+              { backgroundColor: colors.primary, opacity: saving ? 0.75 : pressed ? 0.92 : 1 },
+            ]}
           >
             <Text style={styles.saveWideTxt}>Save Changes</Text>
           </Pressable>
@@ -424,7 +431,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -4,
     bottom: -4,
-    backgroundColor: '#4F46E5',
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -472,7 +478,6 @@ const styles = StyleSheet.create({
   checkLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
   saveWide: {
     marginTop: 16,
-    backgroundColor: '#4F46E5',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',

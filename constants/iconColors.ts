@@ -17,13 +17,13 @@ export const ICON_COLORS = {
 
 export type IconColorKey = keyof typeof ICON_COLORS;
 
-/** Dark mode: subtler fills + same icon hues (per spec: darken / ~15% opacity on icon color). */
+/** Dark mode: subtler fills + same icon hues (~20% opacity on icon color for chip contrast). */
 export function getIconColors(isDark: boolean, key: IconColorKey): { bg: string; icon: string } {
   const base = ICON_COLORS[key];
   if (!isDark) return { bg: base.bg, icon: base.icon };
   const icon = base.icon;
   return {
-    bg: `${icon}26`,
+    bg: `${icon}33`,
     icon,
   };
 }
