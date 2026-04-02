@@ -47,3 +47,12 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Local Firebase (CLI cache; do not commit)
+.firebase/
+
+# Android Google Services (project-specific; obtain from Firebase Console)
+google-services.json
+
+# JetBrains / IDE
+.idea/
