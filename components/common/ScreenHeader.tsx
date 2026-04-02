@@ -51,7 +51,7 @@ export function ScreenHeader({
         {rightElement}
         {!rightElement && rightLabel && rightAction ? (
           <Pressable onPress={rightAction} hitSlop={8}>
-            <Text style={styles.rightLabel}>{rightLabel}</Text>
+            <Text style={[styles.rightLabel, { color: colors?.primary ?? theme.primary }]}>{rightLabel}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -87,5 +87,5 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
-  rightLabel: { fontSize: 16, fontWeight: '600', color: '#4F46E5' },
+  rightLabel: { fontSize: 16, fontWeight: '600' },
 });

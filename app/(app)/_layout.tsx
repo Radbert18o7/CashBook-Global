@@ -7,27 +7,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HapticTab } from '@/components/haptic-tab';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuthStore } from '@/store/authStore';
-
-const ACTIVE = '#4F46E5';
-const INACTIVE = '#94A3B8';
+import { getAppColorPalette } from '@/theme/designTokens';
 
 export default function AppTabsLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = getAppColorPalette(isDark);
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
 
-  const tabBarBg = isDark ? '#1E293B' : '#FFFFFF';
-  const tabBorder = isDark ? '#334155' : '#E2E8F0';
+  const tabBarBg = colors.tabBarBg;
+  const tabBorder = colors.tabBarBorder;
 
   const tabPadBottom = Platform.OS === 'android' ? 8 + insets.bottom : 24;
   const tabHeight = Platform.OS === 'android' ? 60 + 8 + insets.bottom : 84;
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F172A' }}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+      <View
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -41,8 +42,8 @@ export default function AppTabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: ACTIVE,
-        tabBarInactiveTintColor: INACTIVE,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.inactive,
         tabBarShowLabel: true,
         tabBarLabelStyle: styles.tabLabel,
         tabBarStyle: [

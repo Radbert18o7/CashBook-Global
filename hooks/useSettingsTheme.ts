@@ -1,5 +1,7 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+import { getAppColorPalette, primitive } from '@/theme/designTokens';
+
 export type SettingsTheme = {
   isDark: boolean;
   screenBg: string;
@@ -11,21 +13,26 @@ export type SettingsTheme = {
   headerBg: string;
   chevron: string;
   track: string;
+  /** Brand accent; links, switches, header actions. */
+  primary: string;
 };
 
 export function useSettingsTheme(): SettingsTheme {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
+  const c = getAppColorPalette(isDark);
+  const { slate: s } = primitive;
   return {
     isDark,
-    screenBg: isDark ? '#0F172A' : '#F8FAFC',
-    cardBg: isDark ? '#1E293B' : '#FFFFFF',
-    title: isDark ? '#F1F5F9' : '#0F172A',
-    subtitle: isDark ? '#94A3B8' : '#64748B',
-    section: isDark ? '#64748B' : '#94A3B8',
-    border: isDark ? '#334155' : '#F1F5F9',
-    headerBg: isDark ? '#1E293B' : '#FFFFFF',
-    chevron: '#94A3B8',
-    track: isDark ? '#334155' : '#E2E8F0',
+    screenBg: c.background,
+    cardBg: c.surface,
+    title: c.textPrimary,
+    subtitle: c.textSecondary,
+    section: c.textTertiary,
+    border: isDark ? s[700] : s[100],
+    headerBg: c.surface,
+    chevron: s[400],
+    track: isDark ? s[700] : s[200],
+    primary: c.primary,
   };
 }
