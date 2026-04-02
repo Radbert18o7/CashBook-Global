@@ -40,6 +40,109 @@ function fail(code: string, message: string): Fail {
   return { success: false, error: { code, message } };
 }
 
+const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
+const DRIVE_UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
+const EXPORT_FOLDER_NAME = 'CashBook Exports';
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+
+function stripPdfBase64Payload(raw: string): string {
+  const t = raw.trim();
+  const m = /^data:application\/pdf;base64,(.+)$/is.exec(t);
+  if (m) return m[1].replace(/\s/g, '');
+  return t.replace(/\s/g, '');
+}
+
+async function parseDriveError(res: Response): Promise<string> {
+  try {
+    const j = (await res.json()) as { error?: { message?: string; code?: number } };
+    return j.error?.message ?? res.statusText;
+  } catch {
+    return res.statusText;
+  }
+}
+
+/** Find or create the "CashBook Exports" folder in the user's My Drive. */
+async function ensureCashBookExportsFolder(accessToken: string): Promise<string | Fail> {
+  const q = encodeURIComponent(
+    `name='${EXPORT_FOLDER_NAME}' and mimeType='${FOLDER_MIME}' and trashed=false`,
+  );
+  const listUrl = `${DRIVE_API_BASE}/files?q=${q}&fields=files(id,name)&pageSize=10&spaces=drive`;
+  const listRes = await fetch(listUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!listRes.ok) {
+    return fail('DRIVE_LIST_FAILED', await parseDriveError(listRes));
+  }
+  const listJson = (await listRes.json()) as { files?: { id: string }[] };
+  const existing = listJson.files?.[0];
+  if (existing?.id) return existing.id;
+
+  const createRes = await fetch(`${DRIVE_API_BASE}/files?fields=id`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: EXPORT_FOLDER_NAME,
+      mimeType: FOLDER_MIME,
+    }),
+  });
+  if (!createRes.ok) {
+    return fail('DRIVE_FOLDER_CREATE_FAILED', await parseDriveError(createRes));
+  }
+  const created = (await createRes.json()) as { id?: string };
+  if (!created.id) {
+    return fail('DRIVE_FOLDER_CREATE_FAILED', 'Missing folder id in response');
+  }
+  return created.id;
+}
+
+function buildMultipartPdfBody(boundary: string, metadata: object, pdfBuffer: Buffer): Buffer {
+  const head = Buffer.from(
+    `--${boundary}\r\n` +
+      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+      `${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Type: application/pdf\r\n\r\n`,
+    'utf8',
+  );
+  const tail = Buffer.from(`\r\n--${boundary}--`, 'utf8');
+  return Buffer.concat([head, pdfBuffer, tail]);
+}
+
+async function uploadPdfToDriveFolder(
+  accessToken: string,
+  folderId: string,
+  fileName: string,
+  pdfBuffer: Buffer,
+): Promise<{ fileId: string; webViewLink: string } | Fail> {
+  const boundary = `cashbook_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const safeName = fileName.toLowerCase().endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+  const metadata: Record<string, unknown> = {
+    name: safeName,
+    parents: [folderId],
+  };
+  const body = buildMultipartPdfBody(boundary, metadata, pdfBuffer);
+  const uploadUrl = `${DRIVE_UPLOAD_BASE}/files?uploadType=multipart&fields=id,webViewLink`;
+  const res = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`,
+    },
+    body: new Uint8Array(body),
+  });
+  if (!res.ok) {
+    return fail('DRIVE_UPLOAD_FAILED', await parseDriveError(res));
+  }
+  const data = (await res.json()) as { id?: string; webViewLink?: string };
+  if (!data.id) {
+    return fail('DRIVE_UPLOAD_FAILED', 'Missing file id in upload response');
+  }
+  return { fileId: data.id, webViewLink: data.webViewLink ?? '' };
+}
+
 function parseJsonBlock(text: string): unknown {
   let t = text.trim();
   if (t.startsWith('```')) {
@@ -199,7 +302,53 @@ export const getSpendingInsights = onCall(async (request) => {
 
 export const exportToGoogleDrive = onCall(async (request) => {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required');
-  return fail('NOT_IMPLEMENTED', 'Google Drive export not configured');
+
+  const body = request.data as {
+    pdfBase64?: string;
+    fileName?: string;
+    bookName?: string;
+    accessToken?: string;
+  };
+
+  const pdfBase64 = typeof body.pdfBase64 === 'string' ? body.pdfBase64 : '';
+  const fileName = typeof body.fileName === 'string' && body.fileName.trim() ? body.fileName.trim() : 'export.pdf';
+  const accessToken = typeof body.accessToken === 'string' ? body.accessToken.trim() : '';
+  void body.bookName;
+
+  if (!pdfBase64) {
+    return fail('INVALID_ARGUMENT', 'pdfBase64 is required');
+  }
+  if (!accessToken) {
+    return fail('INVALID_ARGUMENT', 'accessToken is required');
+  }
+
+  let pdfBuffer: Buffer;
+  try {
+    pdfBuffer = Buffer.from(stripPdfBase64Payload(pdfBase64), 'base64');
+  } catch (e) {
+    logger.error('exportToGoogleDrive base64', e);
+    return fail('INVALID_ARGUMENT', 'Invalid pdfBase64 payload');
+  }
+  if (pdfBuffer.length === 0) {
+    return fail('INVALID_ARGUMENT', 'Decoded PDF is empty');
+  }
+
+  try {
+    const folderIdOrErr = await ensureCashBookExportsFolder(accessToken);
+    if (typeof folderIdOrErr !== 'string') {
+      return folderIdOrErr;
+    }
+
+    const uploaded = await uploadPdfToDriveFolder(accessToken, folderIdOrErr, fileName, pdfBuffer);
+    if ('success' in uploaded) {
+      return uploaded;
+    }
+    return ok({ fileId: uploaded.fileId, webViewLink: uploaded.webViewLink });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    logger.error('exportToGoogleDrive', e);
+    return fail('INTERNAL', msg);
+  }
 });
 
 export const sendTeamInvite = onCall(async (request) => {
