@@ -9,6 +9,7 @@ import {
   SectionList,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -129,6 +130,7 @@ function AnimatedCashButton({
 export default function BookDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const colors = useColors();
   const theme = useSettingsTheme();
   const params = useLocalSearchParams<{ bookId: string }>();
@@ -327,6 +329,8 @@ export default function BookDetailScreen() {
 
   const showInitialEntriesLoad = Boolean(bookId && entriesLoading && entries.length === 0);
 
+  const emptyBlockMaxWidth = Math.min(420, Math.max(280, windowWidth - 48));
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScreenHeader
@@ -381,7 +385,7 @@ export default function BookDetailScreen() {
         }
         ListHeaderComponent={
           <View>
-            <View style={styles.balanceCard}>
+            <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
               <Text style={styles.netLabel}>Net Balance</Text>
               <Text style={styles.netAmount} numberOfLines={1}>
                 {formatMoney(netAnim, currency)}
@@ -389,16 +393,16 @@ export default function BookDetailScreen() {
               <View style={styles.balanceDivider} />
               <View style={styles.inOutRow}>
                 <View style={styles.inOutCol}>
-                  <Ionicons name="arrow-up" size={14} color="#86EFAC" />
+                  <Ionicons name="arrow-up" size={14} color={colors.success} />
                   <Text style={styles.inOutHeading}>Total In</Text>
-                  <Text style={styles.inAmt}>
+                  <Text style={[styles.inAmt, { color: colors.success }]}>
                     {formatMoney(summary?.total_in ?? 0, currency)}
                   </Text>
                 </View>
                 <View style={styles.inOutCol}>
-                  <Ionicons name="arrow-down" size={14} color="#FCA5A5" />
+                  <Ionicons name="arrow-down" size={14} color={colors.danger} />
                   <Text style={styles.inOutHeading}>Total Out</Text>
-                  <Text style={styles.outAmt}>
+                  <Text style={[styles.outAmt, { color: colors.danger }]}>
                     {formatMoney(summary?.total_out ?? 0, currency)}
                   </Text>
                 </View>
@@ -418,7 +422,15 @@ export default function BookDetailScreen() {
           </View>
         }
         renderSectionHeader={({ section: { title } }) => (
-          <View style={[styles.sectionHeader, { backgroundColor: colors.surfaceSecondary }]}>
+          <View
+            style={[
+              styles.sectionHeader,
+              {
+                backgroundColor: colors.surfaceSecondary,
+                borderBottomColor: colors.border,
+              },
+            ]}
+          >
             <Text style={[styles.sectionHeaderText, { color: colors.textSecondary }]}>{title}</Text>
           </View>
         )}
@@ -474,14 +486,20 @@ export default function BookDetailScreen() {
           </Pressable>
         )}
         ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Ionicons name="wallet-outline" size={80} color="#CBD5E1" style={{ marginBottom: 20 }} />
+          <View
+            style={[styles.emptyWrap, { maxWidth: emptyBlockMaxWidth, alignSelf: 'center' }]}
+            accessibilityLabel="No ledger entries yet. Use Cash In or Cash Out below to add one."
+          >
+            <View style={[styles.emptyIconRing, { backgroundColor: colors.primaryLight }]}>
+              <Ionicons name="wallet-outline" size={44} color={colors.primary} />
+            </View>
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No entries yet</Text>
             <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-              Tap CASH IN or CASH OUT below{'\n'}to record your first transaction
+              Record money in and out to see your running balance here. Use the buttons below when you are ready.
             </Text>
+            <Text style={[styles.emptyHint, { color: colors.textTertiary }]}>CASH IN · CASH OUT</Text>
             <Animated.View style={bounceStyle}>
-              <Ionicons name="arrow-down-outline" size={32} color={colors.primary} style={{ marginTop: 20 }} />
+              <Ionicons name="arrow-down-outline" size={28} color={colors.primary} style={{ marginTop: 16 }} />
             </Animated.View>
           </View>
         }
@@ -541,7 +559,6 @@ const styles = StyleSheet.create({
   listContent: { paddingBottom: 24 },
   listContentEmpty: { flexGrow: 1 },
   balanceCard: {
-    backgroundColor: '#4F46E5',
     borderRadius: 20,
     padding: 20,
     marginHorizontal: 16,
@@ -563,8 +580,8 @@ const styles = StyleSheet.create({
   inOutRow: { flexDirection: 'row', gap: 16 },
   inOutCol: { flex: 1, gap: 4 },
   inOutHeading: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
-  inAmt: { color: '#86EFAC', fontSize: 18, fontWeight: '700' },
-  outAmt: { color: '#FCA5A5', fontSize: 18, fontWeight: '700' },
+  inAmt: { fontSize: 18, fontWeight: '700' },
+  outAmt: { fontSize: 18, fontWeight: '700' },
   viewReports: { marginTop: 16, alignSelf: 'flex-start' },
   viewReportsText: {
     color: 'rgba(255,255,255,0.85)',
@@ -583,6 +600,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   sectionHeaderText: { fontSize: 12, fontWeight: '600' },
   entryRow: {
@@ -617,11 +635,21 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: 48,
     paddingHorizontal: 24,
+    width: '100%',
   },
-  emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  emptySub: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  emptyIconRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: { fontSize: 22, fontWeight: '700', marginBottom: 10, textAlign: 'center' },
+  emptySub: { fontSize: 15, textAlign: 'center', lineHeight: 24 },
+  emptyHint: { fontSize: 12, fontWeight: '600', letterSpacing: 0.8, marginTop: 14 },
   loadMoreBtn: {
     marginHorizontal: 16,
     marginTop: 12,

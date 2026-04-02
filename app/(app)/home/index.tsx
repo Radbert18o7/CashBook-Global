@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -151,8 +152,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { scrollBottomPad } = useSafeArea();
   const { isTablet } = useBreakpoint();
+
+  const emptyBlockMaxWidth = Math.min(400, Math.max(280, windowWidth - 48));
 
   const user = useAuthStore((s) => s.user);
   const userUid = user?.uid;
@@ -335,15 +339,23 @@ export default function HomeScreen() {
 
       {filteredBooks.length === 0 && books.length === 0 ? (
         <View style={styles.emptyOuter}>
-          <Ionicons name="library-outline" size={80} color={colors.textTertiary} />
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No books yet</Text>
-          <Text style={[styles.emptySub, { color: colors.textSecondary }]}>Create your first book to start</Text>
-          <Pressable
-            onPress={() => setIsAddOpen(true)}
-            style={[styles.createBtn, { backgroundColor: colors.primary }]}
-          >
-            <Text style={styles.createBtnText}>Create Book</Text>
-          </Pressable>
+          <View style={[styles.emptyInner, { maxWidth: emptyBlockMaxWidth }]}>
+            <View style={[styles.emptyIconRing, { backgroundColor: colors.primaryLight }]}>
+              <Ionicons name="library-outline" size={44} color={colors.primary} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No books yet</Text>
+            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+              Books hold your cash-in and cash-out ledgers. Create one to get started — you can add more later.
+            </Text>
+            <Pressable
+              onPress={() => setIsAddOpen(true)}
+              style={[styles.createBtn, { backgroundColor: colors.primary }]}
+              accessibilityRole="button"
+              accessibilityLabel="Create your first book"
+            >
+              <Text style={styles.createBtnText}>Create Book</Text>
+            </Pressable>
+          </View>
         </View>
       ) : (
         <FlatList
@@ -354,7 +366,10 @@ export default function HomeScreen() {
           columnWrapperStyle={isTablet ? styles.columnWrap : undefined}
           contentContainerStyle={[styles.listPad, { paddingBottom: 120 + scrollBottomPad }]}
           ListEmptyComponent={
-            <Text style={[styles.noMatch, { color: colors.textSecondary }]}>No books match your search.</Text>
+            <View style={styles.searchEmpty}>
+              <Text style={[styles.noMatch, { color: colors.textSecondary }]}>No books match your search.</Text>
+              <Text style={[styles.noMatchHint, { color: colors.textTertiary }]}>Try another name or clear search.</Text>
+            </View>
           }
           renderItem={({ item }) => (
             <View style={isTablet ? styles.cellTwo : styles.cellOne}>
@@ -499,7 +514,9 @@ const styles = StyleSheet.create({
   columnWrap: { gap: 12, paddingHorizontal: 16 },
   cellOne: { flex: 1 },
   cellTwo: { flex: 1, minWidth: 0 },
-  noMatch: { textAlign: 'center', padding: 24 },
+  searchEmpty: { paddingVertical: 48, paddingHorizontal: 24, alignItems: 'center' },
+  noMatch: { textAlign: 'center', fontSize: 16, fontWeight: '600' },
+  noMatchHint: { textAlign: 'center', marginTop: 8, fontSize: 14 },
   card: {
     borderRadius: 16,
     padding: 16,
@@ -541,10 +558,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    gap: 10,
   },
-  emptyTitle: { fontSize: 20, fontWeight: '700', marginTop: 12 },
-  emptySub: { fontSize: 14, textAlign: 'center' },
+  emptyInner: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyIconRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  emptyTitle: { fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  emptySub: { fontSize: 15, textAlign: 'center', lineHeight: 24 },
   createBtn: {
     marginTop: 16,
     paddingHorizontal: 28,
