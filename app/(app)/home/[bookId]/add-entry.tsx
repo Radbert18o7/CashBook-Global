@@ -33,6 +33,12 @@ export default function AddEntryScreen() {
   /** `/home/index/...` wrongly sets `bookId` to the literal "index" — use `/home` for the book list, not `/home/index`. */
   const rawId = params.bookId;
   const bookId = rawId === 'index' ? undefined : rawId;
+
+  useEffect(() => {
+    if (rawId === 'index') {
+      router.replace('/home');
+    }
+  }, [rawId, router]);
   const typeParam = params.type as EntryType | undefined;
   const type: EntryType = typeParam === 'CASH_OUT' ? 'CASH_OUT' : 'CASH_IN';
 

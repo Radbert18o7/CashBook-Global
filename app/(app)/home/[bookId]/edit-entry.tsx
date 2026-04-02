@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,7 +18,7 @@ import { useColors } from '@/hooks/useColors';
 import { useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useEntryStore } from '@/store/entryStore';
-import { updateEntry } from '@/services/entryService';
+import { getEntry, updateEntry } from '@/services/entryService';
 import type { Entry, EntryType } from '@/utils/models';
 
 function entryDateLabel(entry: Entry | undefined): string | null {
@@ -49,7 +57,9 @@ export default function EditEntryScreen() {
   }, [rawBookId, router]);
 
   const user = useAuthStore((s) => s.user);
-  const { entries, updateEntry: updateEntryInStore } = useEntryStore();
+  const entries = useEntryStore((s) => s.entries);
+  const addEntryToStore = useEntryStore((s) => s.addEntry);
+  const updateEntryInStore = useEntryStore((s) => s.updateEntry);
   const entry = useMemo(() => entries.find((e) => e.id === entryId), [entries, entryId]);
 
   const [amountText, setAmountText] = useState('');
@@ -57,7 +67,34 @@ export default function EditEntryScreen() {
   const [remark, setRemark] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'missing' | 'error'>('idle');
   const hydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (!bookId || !entryId) return;
+    if (entry) {
+      setLoadState('idle');
+      return;
+    }
+    let cancelled = false;
+    setLoadState('loading');
+    void getEntry(bookId, entryId)
+      .then((e) => {
+        if (cancelled) return;
+        if (!e) {
+          setLoadState('missing');
+          return;
+        }
+        addEntryToStore(e);
+        setLoadState('idle');
+      })
+      .catch(() => {
+        if (!cancelled) setLoadState('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bookId, entryId, entry, addEntryToStore]);
 
   useEffect(() => {
     if (!entry) {
@@ -133,15 +170,30 @@ export default function EditEntryScreen() {
     );
   }
 
-  if (!entry) {
+  if (loadState === 'loading' || (loadState === 'idle' && !entry)) {
     return (
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <ScreenHeader title="Edit entry" theme={theme} colors={colors} />
         <View style={styles.missingWrap}>
-          <ThemedText style={[styles.missingTitle, { color: colors.textPrimary }]}>Entry not available</ThemedText>
+          <ActivityIndicator color={colors.primary} />
+          <ThemedText style={[styles.missingSub, { color: colors.textSecondary }]}>Loading entry…</ThemedText>
+        </View>
+      </View>
+    );
+  }
+
+  if (loadState === 'missing' || loadState === 'error' || !entry) {
+    return (
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
+        <ScreenHeader title="Edit entry" theme={theme} colors={colors} />
+        <View style={styles.missingWrap}>
+          <ThemedText style={[styles.missingTitle, { color: colors.textPrimary }]}>
+            {loadState === 'error' ? 'Could not load entry' : 'Entry not found'}
+          </ThemedText>
           <ThemedText style={[styles.missingSub, { color: colors.textSecondary }]}>
-            This entry is not loaded. Go back to the book, find the row, and tap it again — older entries may require
-            scrolling to load.
+            {loadState === 'error'
+              ? 'Check your connection and try again from the book.'
+              : 'This entry may have been removed. Go back to the book and refresh the list.'}
           </ThemedText>
         </View>
       </View>

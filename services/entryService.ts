@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -8,6 +9,7 @@ import {
   serverTimestamp,
   startAfter,
   Timestamp,
+  type DocumentSnapshot,
   type QueryDocumentSnapshot,
   where,
   runTransaction,
@@ -57,7 +59,7 @@ function localDayEnd(isoDate: string): Date {
   return new Date(y, m - 1, d, 23, 59, 59, 999);
 }
 
-function entryFromSnapshot(bookId: string, snap: QueryDocumentSnapshot): Entry {
+function entryFromSnapshot(bookId: string, snap: DocumentSnapshot): Entry {
   const data = snap.data() as any;
   return {
     id: snap.id,
@@ -78,6 +80,16 @@ function entryFromSnapshot(bookId: string, snap: QueryDocumentSnapshot): Entry {
     custom_fields: data.custom_fields ?? undefined,
     image_url: data.image_url ?? undefined,
   };
+}
+
+/** Loads a single active entry, or `null` if missing or soft-deleted. */
+export async function getEntry(bookId: string, entryId: string): Promise<Entry | null> {
+  const entryRef = doc(firestore, 'books', bookId, 'entries', entryId);
+  const snap = await getDoc(entryRef);
+  if (!snap.exists()) return null;
+  const data = snap.data() as { deleted_at?: unknown };
+  if (data.deleted_at != null) return null;
+  return entryFromSnapshot(bookId, snap);
 }
 
 /** Lists active entries only (`deleted_at == null`). Legacy docs missing `deleted_at` need a one-time backfill to null. */
