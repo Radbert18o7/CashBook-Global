@@ -9,6 +9,17 @@ Cross-platform cashbook app built with [Expo](https://expo.dev) (React Native) a
 - **i18n:** i18next; locale files under `i18n/locales/` (run `npm run i18n:build` after structural changes)  
 - **State:** Zustand (`store/`)
 
+## Git branch policy
+
+All work is integrated on **`master`**. Do not commit to or open PRs against **`main`**—that branch is legacy-only on the remote. Use `master` for pushes:
+
+```bash
+git checkout master
+git pull origin master
+```
+
+If you have admin access on GitHub, set the repository **default branch** to `master` (Settings → General → Default branch) so new clones and the UI follow this branch.
+
 ## Prerequisites
 
 - Node.js LTS and npm  
