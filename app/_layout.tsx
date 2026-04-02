@@ -47,7 +47,6 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(app)" />
-          <Stack.Screen name="firebase-test" options={{ headerShown: true, title: 'Firebase test' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true, title: 'Modal' }} />
         </Stack>
       <StatusBar style="auto" />

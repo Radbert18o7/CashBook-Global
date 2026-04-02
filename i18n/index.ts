@@ -44,7 +44,10 @@ import ro from './locales/ro.json';
 
 const rtlLanguages = ['ar', 'he', 'ur', 'fa'] as const;
 
-/** Locales for major Indian languages (LTR), listed together in the app language picker. */
+/**
+ * Locales for major Indian languages (LTR), listed under "Indian Languages" in app settings.
+ * Hindi (hi) and Bengali (bn) are included here with gu, mr, ta, te, kn, ml, pa — not under "Other languages".
+ */
 export const indianLocales = ['hi', 'bn', 'gu', 'mr', 'ta', 'te', 'kn', 'ml', 'pa'] as const;
 export type IndianLocale = (typeof indianLocales)[number];
 

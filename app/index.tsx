@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { Redirect } from 'expo-router';
 
 import { useAuthStore } from '@/store/authStore';
@@ -48,8 +49,22 @@ export default function Index() {
     };
   }, [user?.uid]);
 
-  if (isLoading || (isAuthenticated && user && !onboardingChecked)) return null;
+  if (isLoading || (isAuthenticated && user && !onboardingChecked)) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#0F172A',
+        }}
+      >
+        <ActivityIndicator size="large" color="#4F46E5" />
+      </View>
+    );
+  }
+
   if (!isAuthenticated) return <Redirect href="/welcome" />;
   if (needsOnboarding) return <Redirect href="/onboarding" />;
-  return <Redirect href="/home/index" />;
+  return <Redirect href="/home" />;
 }

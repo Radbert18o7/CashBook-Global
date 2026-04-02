@@ -11,6 +11,8 @@ import {
 import { PieChart } from 'react-native-chart-kit';
 import { useTranslation } from 'react-i18next';
 
+import { useColors } from '@/hooks/useColors';
+import { useSafeArea } from '@/hooks/useSafeArea';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useBookStore } from '@/store/bookStore';
@@ -25,6 +27,8 @@ import { toLocalISODate } from '@/utils/localISODate';
 
 export default function ReportsScreen() {
   const { t } = useTranslation();
+  const colors = useColors();
+  const { scrollBottomPad } = useSafeArea();
   const { width } = useWindowDimensions();
   const { currentBook } = useBookStore();
   const [summary, setSummary] = useState<{
@@ -144,8 +148,11 @@ export default function ReportsScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <ThemedView style={styles.container} lightColor={colors.background} darkColor={colors.background}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: scrollBottomPad + 72 }]}
+        showsVerticalScrollIndicator={false}
+      >
         <ThemedText type="title" style={styles.title}>
           {t('reports.title')}
         </ThemedText>

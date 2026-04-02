@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
+import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
 import { useAuthStore } from '@/store/authStore';
 import { useEntryStore } from '@/store/entryStore';
@@ -12,8 +13,15 @@ import type { EntryType } from '@/utils/models';
 export default function EditEntryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ bookId: string; entryId: string }>();
-  const bookId = params.bookId;
+  const rawBookId = params.bookId;
+  const bookId = rawBookId === 'index' ? undefined : rawBookId;
   const entryId = params.entryId;
+
+  useEffect(() => {
+    if (rawBookId === 'index') {
+      router.replace('/home');
+    }
+  }, [rawBookId, router]);
 
   const user = useAuthStore((s) => s.user);
   const { entries, updateEntry: updateEntryInStore } = useEntryStore();
@@ -73,13 +81,13 @@ export default function EditEntryScreen() {
       </ThemedText>
 
       <ThemedText style={styles.label}>Amount</ThemedText>
-      <TextInput value={amountText} onChangeText={setAmountText} keyboardType="decimal-pad" style={styles.input} />
+      <ThemedTextInput value={amountText} onChangeText={setAmountText} keyboardType="decimal-pad" style={styles.input} />
 
       <ThemedText style={styles.label}>Contact</ThemedText>
-      <TextInput value={contactName} onChangeText={setContactName} placeholder="Optional" style={styles.input} />
+      <ThemedTextInput value={contactName} onChangeText={setContactName} placeholder="Optional" style={styles.input} />
 
       <ThemedText style={styles.label}>Remark</ThemedText>
-      <TextInput
+      <ThemedTextInput
         value={remark}
         onChangeText={setRemark}
         placeholder="Optional"
@@ -114,11 +122,6 @@ const styles = StyleSheet.create({
   label: { opacity: 0.85, marginTop: 6 },
   input: {
     borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(127,127,127,0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: 'transparent',
   },
   error: { marginTop: 6, textAlign: 'center' },
   stickyFooter: { position: 'absolute', left: 16, right: 16, bottom: 16 },

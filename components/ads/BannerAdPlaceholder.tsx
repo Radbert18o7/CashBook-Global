@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
-import remoteConfig from '@react-native-firebase/remote-config';
+import { getApp } from '@react-native-firebase/app';
+import { fetchAndActivate, getBoolean, getRemoteConfig } from '@react-native-firebase/remote-config';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -12,9 +13,9 @@ export default function BannerAdPlaceholder() {
     let cancelled = false;
     async function load() {
       try {
-        await remoteConfig().fetchAndActivate();
-        const v = remoteConfig().getValue('admob_enabled');
-        const ok = v.asBoolean();
+        const rc = getRemoteConfig(getApp());
+        await fetchAndActivate(rc);
+        const ok = getBoolean(rc, 'admob_enabled');
         if (!cancelled) setEnabled(!!ok);
       } catch {
         if (!cancelled) setEnabled(false);

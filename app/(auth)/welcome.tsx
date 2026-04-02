@@ -1,104 +1,165 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { Link } from 'expo-router';
+import { useState } from 'react';
+import {
+  Alert,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { Link, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemedText } from '@/components/themed-text';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { GoogleSignInButton, isGoogleOAuthConfigured } from '@/components/auth/GoogleSignInButton';
+import { signInAsGuest } from '@/services/authService';
+import { getFirebaseAuthMessage } from '@/utils/authErrors';
+
+const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL ?? 'https://www.cashbookglobal.app/terms';
+const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? 'https://www.cashbookglobal.app/privacy';
 
 export default function WelcomeScreen() {
-  const backgroundColor = useThemeColor({}, 'background');
-  const fade = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.9)).current;
-  const [mounted, setMounted] = useState(false);
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    Animated.parallel([
-      Animated.timing(fade, { toValue: 1, duration: 450, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, friction: 6, useNativeDriver: true }),
-    ]).start();
-  }, [fade, scale]);
+  // Metro resolves this at bundle time (see app.json icon path).
+  const iconSource = require('../../assets/images/icon.png') as number;
 
-  const containerStyle = useMemo(
-    () => ({
-      opacity: mounted ? fade : 0,
-      transform: [{ scale: mounted ? scale : 0.9 }],
-    }),
-    [mounted, fade, scale],
-  );
+  async function onGuest() {
+    setLoading(true);
+    setError(null);
+    try {
+      await signInAsGuest();
+      router.replace('/');
+    } catch (e: unknown) {
+      setError(getFirebaseAuthMessage(e, 'Guest sign-in failed'));
+      Alert.alert('Guest sign-in', getFirebaseAuthMessage(e, 'Could not continue as guest'));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <Animated.View style={[styles.container, { backgroundColor }, containerStyle]}>
-      <View style={styles.logo} />
-      <ThemedText type="title" style={styles.title}>
-        CashBook Global
-      </ThemedText>
-      <ThemedText style={styles.subtitle}>Manage your business finances</ThemedText>
+    <ScrollView
+      contentContainerStyle={[styles.scroll, { paddingTop: Math.max(insets.top, 12) }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.top}>
+        <Image source={iconSource} style={styles.icon} resizeMode="cover" />
+        <Text style={styles.title}>CashBook Global</Text>
+        <Text style={styles.tagline}>Track your business finances</Text>
+      </View>
 
-      <Link href="/sign-in" asChild>
-        <Pressable style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-          <ThemedText type="defaultSemiBold">Continue with Google</ThemedText>
-        </Pressable>
-      </Link>
+      <View style={styles.bottom}>
+        {error ? <Text style={styles.err}>{error}</Text> : null}
 
-      <Link href="/sign-in" asChild>
-        <Pressable style={({ pressed }) => [styles.outlineButton, pressed && styles.pressed]}>
-          <ThemedText type="defaultSemiBold">Continue with Email</ThemedText>
-        </Pressable>
-      </Link>
+        {isGoogleOAuthConfigured() ? (
+          <GoogleSignInButton
+            loading={loading}
+            setLoading={setLoading}
+            setError={setError}
+            variant="welcome"
+            onSignedIn={() => router.replace('/')}
+          />
+        ) : (
+          <Text style={styles.oauthHint}>Add Google OAuth client IDs in .env to enable Google sign-in.</Text>
+        )}
 
-      <Link href="/sign-in" asChild>
-        <Pressable style={styles.guestButton}>
-          <ThemedText type="subtitle">Continue as Guest</ThemedText>
+        <Link href="/sign-in" asChild>
+          <Pressable style={({ pressed }) => [styles.emailBtn, pressed && styles.pressed]}>
+            <Text style={styles.emailBtnText}>Continue with Email</Text>
+          </Pressable>
+        </Link>
+
+        <Pressable onPress={() => void onGuest()} disabled={loading}>
+          <Text style={styles.guest}>Continue as Guest</Text>
         </Pressable>
-      </Link>
-    </Animated.View>
+
+        <Text style={styles.legal}>
+          By continuing you agree to our{' '}
+          <Text style={styles.link} onPress={() => void Linking.openURL(TERMS_URL)}>
+            Terms
+          </Text>{' '}
+          and{' '}
+          <Text style={styles.link} onPress={() => void Linking.openURL(PRIVACY_URL)}>
+            Privacy Policy
+          </Text>
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 28,
-    gap: 14,
-    alignItems: 'center',
+  scroll: {
+    flexGrow: 1,
+    backgroundColor: '#0F172A',
+    paddingBottom: 40,
   },
-  logo: {
-    width: 96,
-    height: 96,
-    borderRadius: 24,
-    backgroundColor: '#4F46E5',
+  top: {
+    flex: 1,
+    minHeight: 320,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  icon: {
+    width: 100,
+    height: 100,
+    borderRadius: 22,
   },
   title: {
+    marginTop: 20,
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#fff',
     textAlign: 'center',
   },
-  subtitle: {
+  tagline: {
+    marginTop: 8,
+    fontSize: 16,
+    color: '#94A3B8',
     textAlign: 'center',
-    opacity: 0.9,
   },
-  primaryButton: {
+  bottom: {
+    paddingHorizontal: 32,
+    paddingTop: 16,
+    gap: 12,
+  },
+  emailBtn: {
     width: '100%',
-    backgroundColor: '#4F46E5',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#334155',
     alignItems: 'center',
-  },
-  outlineButton: {
-    width: '100%',
-    backgroundColor: 'transparent',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-  },
-  guestButton: {
+    justifyContent: 'center',
     marginTop: 4,
-    paddingVertical: 8,
   },
-  pressed: { opacity: 0.85 },
+  emailBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  guest: {
+    marginTop: 12,
+    textAlign: 'center',
+    color: '#64748B',
+    fontSize: 14,
+    textDecorationLine: 'underline',
+  },
+  legal: {
+    marginTop: 20,
+    textAlign: 'center',
+    color: '#475569',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  link: { color: '#94A3B8', textDecorationLine: 'underline' },
+  err: { color: '#F87171', textAlign: 'center', marginBottom: 4 },
+  oauthHint: { color: '#94A3B8', textAlign: 'center', fontSize: 13 },
+  pressed: { opacity: 0.88 },
 });
-

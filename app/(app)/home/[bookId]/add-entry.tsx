@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 
 import { ThemedText } from '@/components/themed-text';
+import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
 import { useAuthStore } from '@/store/authStore';
 import { useEntryStore } from '@/store/entryStore';
@@ -16,7 +17,9 @@ import * as ImagePicker from 'expo-image-picker';
 export default function AddEntryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ bookId: string; type?: string }>();
-  const bookId = params.bookId;
+  /** `/home/index/...` wrongly sets `bookId` to the literal "index" — use `/home` for the book list, not `/home/index`. */
+  const rawId = params.bookId;
+  const bookId = rawId === 'index' ? undefined : rawId;
   const typeParam = params.type as EntryType | undefined;
   const type: EntryType = typeParam === 'CASH_OUT' ? 'CASH_OUT' : 'CASH_IN';
 
@@ -40,7 +43,10 @@ export default function AddEntryScreen() {
       setError('Not authenticated.');
       return;
     }
-    if (!bookId) return;
+    if (!bookId) {
+      setError('Missing book. Go back and open a book from the home list.');
+      return;
+    }
     const amount = Number(amountText);
     if (!Number.isFinite(amount) || amount <= 0) {
       setError('Enter a valid amount.');
@@ -101,8 +107,12 @@ export default function AddEntryScreen() {
       setVoiceStatus(e?.error?.message ?? 'Voice recognition failed');
     };
     return () => {
-      Voice.destroy().catch(() => {});
-      Voice.removeAllListeners?.();
+      void Voice.destroy().catch(() => {});
+      try {
+        Voice.removeAllListeners?.();
+      } catch {
+        // Native voice module may already be torn down on unmount.
+      }
     };
   }, []);
 
@@ -163,7 +173,7 @@ export default function AddEntryScreen() {
       </ThemedText>
 
       <ThemedText style={styles.label}>Amount</ThemedText>
-      <TextInput
+      <ThemedTextInput
         value={amountText}
         onChangeText={setAmountText}
         keyboardType="decimal-pad"
@@ -172,12 +182,12 @@ export default function AddEntryScreen() {
       />
 
       <ThemedText style={styles.label}>Contact</ThemedText>
-      <TextInput value={contactName} onChangeText={setContactName} placeholder="Optional" style={styles.input} />
+      <ThemedTextInput value={contactName} onChangeText={setContactName} placeholder="Optional" style={styles.input} />
 
       <ThemedText style={styles.label}>Remark</ThemedText>
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
-          <TextInput
+          <ThemedTextInput
             value={remark}
             onChangeText={setRemark}
             placeholder="Optional"
@@ -241,11 +251,6 @@ const styles = StyleSheet.create({
   label: { opacity: 0.85, marginTop: 6 },
   input: {
     borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(127,127,127,0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: 'transparent',
   },
   error: { marginTop: 6, textAlign: 'center' },
   stickyFooter: { position: 'absolute', left: 16, right: 16, bottom: 16 },

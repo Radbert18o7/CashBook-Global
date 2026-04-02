@@ -10,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  TextInput,
   View,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -20,6 +19,7 @@ import { httpsCallable } from 'firebase/functions';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 
 import { ThemedText } from '@/components/themed-text';
+import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -107,7 +107,8 @@ export default function BookSettingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ bookId: string }>();
-  const bookId = params.bookId;
+  const rawBookId = params.bookId;
+  const bookId = rawBookId === 'index' ? undefined : rawBookId;
   const user = useAuthStore((s) => s.user);
   const removeBookFromStore = useBookStore((s) => s.removeBook);
   const colorScheme = useColorScheme();
@@ -146,6 +147,12 @@ export default function BookSettingsScreen() {
   const [contactLabelDraft, setContactLabelDraft] = useState('');
 
   const fieldCfg = useMemo(() => mergeBookFieldSettings(settingsRaw), [settingsRaw]);
+
+  useEffect(() => {
+    if (rawBookId === 'index') {
+      router.replace('/home');
+    }
+  }, [rawBookId, router]);
 
   const loadAll = useCallback(async () => {
     if (!bookId) return;
@@ -370,11 +377,10 @@ export default function BookSettingsScreen() {
         </Pressable>
         <ThemedText type="title">{t('bookSettings.contact')}</ThemedText>
         <ThemedText style={styles.muted}>{t('entry.contact')}</ThemedText>
-        <TextInput
+        <ThemedTextInput
           value={contactLabelDraft}
           onChangeText={setContactLabelDraft}
           style={styles.input}
-          placeholderTextColor="rgba(127,127,127,0.6)"
         />
         <Pressable style={styles.primaryBtn} onPress={() => void saveContactLabel(contactLabelDraft)}>
           <ThemedText style={styles.primaryBtnText}>{t('common.save')}</ThemedText>
@@ -452,11 +458,10 @@ export default function BookSettingsScreen() {
               onPress={(e) => e.stopPropagation()}
             >
               <ThemedText type="subtitle">{t('bookSettings.addCategory')}</ThemedText>
-              <TextInput
+              <ThemedTextInput
                 value={catModal?.name ?? ''}
                 onChangeText={(x) => setCatModal((m) => (m ? { ...m, name: x } : m))}
                 style={styles.input}
-                placeholderTextColor="rgba(127,127,127,0.6)"
               />
               <Pressable
                 style={styles.primaryBtn}
@@ -542,11 +547,10 @@ export default function BookSettingsScreen() {
               onPress={(e) => e.stopPropagation()}
             >
               <ThemedText type="subtitle">{t('bookSettings.addPaymentMode')}</ThemedText>
-              <TextInput
+              <ThemedTextInput
                 value={pmModal?.name ?? ''}
                 onChangeText={(x) => setPmModal((m) => (m ? { ...m, name: x } : m))}
                 style={styles.input}
-                placeholderTextColor="rgba(127,127,127,0.6)"
               />
               <Pressable
                 style={styles.primaryBtn}
@@ -642,12 +646,11 @@ export default function BookSettingsScreen() {
               onPress={(e) => e.stopPropagation()}
             >
               <ThemedText type="subtitle">{t('bookSettings.addCustomField')}</ThemedText>
-              <TextInput
+              <ThemedTextInput
                 placeholder={t('bookSettings.fieldName')}
                 value={cfName}
                 onChangeText={setCfName}
                 style={styles.input}
-                placeholderTextColor="rgba(127,127,127,0.6)"
               />
               <View style={styles.typeRow}>
                 {(['TEXT', 'NUMBER', 'DATE', 'DROPDOWN'] as const).map((tp) => (
@@ -672,7 +675,7 @@ export default function BookSettingsScreen() {
                 <>
                   <ThemedText style={styles.muted}>{t('bookSettings.options')}</ThemedText>
                   {cfOptions.map((op, idx) => (
-                    <TextInput
+                    <ThemedTextInput
                       key={idx}
                       value={op}
                       onChangeText={(x) => {
@@ -681,7 +684,6 @@ export default function BookSettingsScreen() {
                         setCfOptions(next);
                       }}
                       style={styles.input}
-                      placeholderTextColor="rgba(127,127,127,0.6)"
                     />
                   ))}
                   <Pressable onPress={() => setCfOptions((o) => [...o, ''])}>
@@ -850,7 +852,7 @@ export default function BookSettingsScreen() {
             onPress={(e) => e.stopPropagation()}
           >
             <ThemedText type="subtitle">{t('bookSettings.rename')}</ThemedText>
-            <TextInput value={renameDraft} onChangeText={setRenameDraft} style={styles.input} />
+            <ThemedTextInput value={renameDraft} onChangeText={setRenameDraft} style={styles.input} />
             <Pressable style={styles.primaryBtn} onPress={() => void saveRename()}>
               <ThemedText style={styles.primaryBtnText}>{t('common.save')}</ThemedText>
             </Pressable>
@@ -865,13 +867,12 @@ export default function BookSettingsScreen() {
             onPress={(e) => e.stopPropagation()}
           >
             <ThemedText type="subtitle">{t('book.addMember')}</ThemedText>
-            <TextInput
+            <ThemedTextInput
               value={memberEmail}
               onChangeText={setMemberEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               style={styles.input}
-              placeholderTextColor="rgba(127,127,127,0.6)"
             />
             <View style={styles.typeRow}>
               <Pressable
@@ -908,8 +909,6 @@ const styles = StyleSheet.create({
   linkRow: { alignSelf: 'flex-start', marginBottom: 8 },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(127,127,127,0.35)',
     borderRadius: 12,
     padding: 12,
     marginTop: 8,

@@ -1,25 +1,29 @@
+import type { ComponentProps, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
+  Text,
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ScreenHeader } from '@/components/common/ScreenHeader';
+import { SettingsCard } from '@/components/settings/SettingsCard';
+import { ThemedTextInput } from '@/components/themed-text-input';
+import { type SettingsTheme, useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { useBusinessStore } from '@/store/businessStore';
 import { getBusiness, updateBusiness } from '@/services/businessService';
 import { uploadImage } from '@/services/cloudinaryService';
+import { computeBusinessProfileStrength } from '@/utils/businessProfileStrength';
 import { WORLD_CURRENCIES } from '@/utils/worldCurrencies';
 import { listTimezones } from '@/utils/timezones';
 
@@ -30,12 +34,13 @@ function initials(name: string) {
 
 export default function BusinessProfileScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const palette = Colors[colorScheme ?? 'light'];
+  const theme = useSettingsTheme();
   const { currentBusiness, updateBusiness: patchStore } = useBusinessStore();
 
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
+  const [website, setWebsite] = useState('');
   const [currencyCode, setCurrencyCode] = useState('');
   const [timezone, setTimezone] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -57,6 +62,8 @@ export default function BusinessProfileScreen() {
       if (b) {
         setName(b.name ?? '');
         setAddress(b.address ?? '');
+        setPhone(b.phone ?? '');
+        setWebsite(b.website ?? '');
         setCurrencyCode(b.currency_code ?? '');
         setTimezone(b.timezone ?? '');
         setLogoUrl(b.logo_url ?? null);
@@ -71,14 +78,25 @@ export default function BusinessProfileScreen() {
   }, [load]);
 
   const strength = useMemo(() => {
-    let p = 0;
-    if (name.trim()) p += 20;
-    if (logoUrl) p += 20;
-    if (address.trim()) p += 20;
-    if (currencyCode.trim()) p += 20;
-    if (timezone.trim()) p += 20;
-    return p;
+    return computeBusinessProfileStrength({
+      name,
+      logo_url: logoUrl ?? undefined,
+      address,
+      currency_code: currencyCode,
+      timezone,
+    });
   }, [name, logoUrl, address, currencyCode, timezone]);
+
+  const checklist = useMemo(
+    () => [
+      { key: 'name', label: 'Business name', ok: !!name.trim() },
+      { key: 'logo', label: 'Logo', ok: !!logoUrl },
+      { key: 'address', label: 'Address', ok: !!address.trim() },
+      { key: 'currency', label: 'Currency', ok: !!currencyCode.trim() },
+      { key: 'timezone', label: 'Timezone', ok: !!timezone.trim() },
+    ],
+    [name, logoUrl, address, currencyCode, timezone],
+  );
 
   const filteredCurrencies = useMemo(() => {
     const q = currencyQ.trim().toLowerCase();
@@ -94,6 +112,11 @@ export default function BusinessProfileScreen() {
     if (!q) return list;
     return list.filter((z) => z.toLowerCase().includes(q));
   }, [tzQ]);
+
+  const currencyLabel = useMemo(() => {
+    const c = WORLD_CURRENCIES.find((x) => x.code === currencyCode);
+    return c ? `${c.code} · ${c.name}` : currencyCode || '—';
+  }, [currencyCode]);
 
   async function pickLogo() {
     if (!currentBusiness?.id) return;
@@ -122,18 +145,26 @@ export default function BusinessProfileScreen() {
     try {
       await updateBusiness(currentBusiness.id, {
         name: name.trim(),
-        address: address.trim() || undefined,
-        currency_code: currencyCode.trim() || undefined,
-        timezone: timezone.trim() || undefined,
-        logo_url: logoUrl ?? undefined,
+        address: address.trim() ? address.trim() : null,
+        phone: phone.trim() ? phone.trim() : null,
+        website: website.trim() ? website.trim() : null,
+        currency_code: currencyCode.trim() ? currencyCode.trim() : null,
+        timezone: timezone.trim() ? timezone.trim() : null,
+        logo_url: logoUrl ?? null,
       });
       patchStore(currentBusiness.id, {
         name: name.trim(),
         address: address.trim() || undefined,
+        phone: phone.trim() || undefined,
+        website: website.trim() || undefined,
         currency_code: currencyCode.trim() || undefined,
         timezone: timezone.trim() || undefined,
         logo_url: logoUrl ?? undefined,
       });
+      Alert.alert('Saved', 'Business profile saved!');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Could not save business profile';
+      Alert.alert('Error', msg);
     } finally {
       setSaving(false);
     }
@@ -141,98 +172,144 @@ export default function BusinessProfileScreen() {
 
   if (!currentBusiness?.id) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText>{t('common.loading')}</ThemedText>
-      </ThemedView>
+      <View style={[styles.root, { backgroundColor: theme.screenBg }]}>
+        <ScreenHeader title="Business Profile" theme={theme} />
+        <Text style={{ color: theme.subtitle, padding: 16 }}>{t('common.loading')}</Text>
+      </View>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <ThemedText type="title">{t('businessProfile.title')}</ThemedText>
-
-        {loading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} />
-        ) : (
-          <>
-            {strength < 50 ? (
-              <View style={[styles.warn, { borderColor: 'rgba(245,158,11,0.5)' }]}>
-                <ThemedText style={{ color: '#B45309' }}>{t('businessProfile.incompleteWarning')}</ThemedText>
-              </View>
-            ) : null}
-
-            <Pressable onPress={() => void pickLogo()} style={styles.logoWrap}>
+    <View style={[styles.root, { backgroundColor: theme.screenBg }]}>
+      <ScreenHeader
+        title="Business Profile"
+        theme={theme}
+        rightLabel={saving ? '…' : 'Save'}
+        rightAction={() => {
+          if (!saving) void save();
+        }}
+      />
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 32 }} />
+      ) : (
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Pressable style={[styles.logoCard, { backgroundColor: theme.cardBg }]} onPress={() => void pickLogo()}>
+            <View style={styles.logoCircleWrap}>
               {logoUrl ? (
-                <Image source={{ uri: logoUrl }} style={styles.logoImg} contentFit="cover" />
+                <Image source={{ uri: logoUrl }} style={styles.logoBig} contentFit="cover" />
               ) : (
-                <View style={[styles.logoPlaceholder, { backgroundColor: 'rgba(79,70,229,0.2)' }]}>
-                  <ThemedText type="defaultSemiBold">{initials(name || currentBusiness.name)}</ThemedText>
+                <View style={[styles.logoPh, { backgroundColor: '#4F46E5' }]}>
+                  <Text style={styles.logoPhTxt}>{initials(name || currentBusiness.name)}</Text>
                 </View>
               )}
-              <ThemedText style={styles.logoHint}>{t('businessProfile.logoHint')}</ThemedText>
-            </Pressable>
-
-            <ThemedText style={styles.label}>{t('businessProfile.strength')}</ThemedText>
-            <View style={styles.barTrack}>
-              <View style={[styles.barFill, { width: `${strength}%` }]} />
+              <View style={styles.camFab}>
+                <Ionicons name="camera" size={18} color="#fff" />
+              </View>
             </View>
-            <ThemedText style={styles.pct}>{strength}%</ThemedText>
+            <Text style={[styles.logoHint, { color: theme.subtitle }]}>Tap to change logo</Text>
+          </Pressable>
 
-            <ThemedText style={styles.label}>{t('businessProfile.name')}</ThemedText>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              style={[styles.input, { color: palette.text, borderColor: 'rgba(127,127,127,0.35)' }]}
-              placeholderTextColor="rgba(127,127,127,0.7)"
-            />
+          <Text style={[styles.secHead, { color: theme.section }]}>BUSINESS INFO</Text>
+          <SettingsCard theme={theme}>
+            <FieldRow icon="business-outline" label="Business name" theme={theme} showBorder>
+              <ThemedTextInput value={name} onChangeText={setName} placeholder="Name" />
+            </FieldRow>
+            <FieldRow icon="location-outline" label="Address" theme={theme} showBorder>
+              <ThemedTextInput
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Street, city"
+                multiline
+                style={{ minHeight: 64, textAlignVertical: 'top' }}
+              />
+            </FieldRow>
+            <FieldRow icon="call-outline" label="Phone" theme={theme} showBorder>
+              <ThemedTextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="Phone" />
+            </FieldRow>
+            <FieldRow icon="globe-outline" label="Website" theme={theme}>
+              <ThemedTextInput
+                value={website}
+                onChangeText={setWebsite}
+                autoCapitalize="none"
+                placeholder="https://"
+              />
+            </FieldRow>
+          </SettingsCard>
 
-            <ThemedText style={styles.label}>{t('businessProfile.address')}</ThemedText>
-            <TextInput
-              value={address}
-              onChangeText={setAddress}
-              multiline
-              style={[styles.input, styles.multiline, { color: palette.text, borderColor: 'rgba(127,127,127,0.35)' }]}
-              placeholderTextColor="rgba(127,127,127,0.7)"
-            />
-
-            <ThemedText style={styles.label}>{t('businessProfile.currency')}</ThemedText>
+          <Text style={[styles.secHead, { color: theme.section }]}>PREFERENCES</Text>
+          <SettingsCard theme={theme}>
             <Pressable
-              style={[styles.selector, { borderColor: 'rgba(127,127,127,0.35)' }]}
+              style={[styles.pickRow, { borderBottomColor: theme.border }]}
               onPress={() => setCurrencyOpen(true)}
             >
-              <ThemedText>{currencyCode || '—'}</ThemedText>
+              <Ionicons name="cash-outline" size={22} color="#16A34A" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.pickLabel, { color: theme.subtitle }]}>Currency</Text>
+                <Text style={[styles.pickVal, { color: theme.title }]} numberOfLines={2}>
+                  {currencyLabel}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.chevron} />
             </Pressable>
+            <Pressable style={styles.pickRow} onPress={() => setTzOpen(true)}>
+              <Ionicons name="time-outline" size={22} color="#4F46E5" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.pickLabel, { color: theme.subtitle }]}>Timezone</Text>
+                <Text style={[styles.pickVal, { color: theme.title }]} numberOfLines={2}>
+                  {timezone || '—'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.chevron} />
+            </Pressable>
+          </SettingsCard>
 
-            <ThemedText style={styles.label}>{t('businessProfile.timezone')}</ThemedText>
-            <Pressable
-              style={[styles.selector, { borderColor: 'rgba(127,127,127,0.35)' }]}
-              onPress={() => setTzOpen(true)}
-            >
-              <ThemedText numberOfLines={1}>{timezone || '—'}</ThemedText>
-            </Pressable>
+          <Text style={[styles.secHead, { color: theme.section }]}>PROFILE STRENGTH</Text>
+          <SettingsCard theme={theme}>
+            <View style={[styles.strengthHead, { borderBottomColor: theme.border }]}>
+              <Text style={{ color: theme.subtitle, fontSize: 12, fontWeight: '600' }}>Completion</Text>
+              <Text style={{ color: theme.title, fontWeight: '800' }}>{strength}%</Text>
+            </View>
+            {checklist.map((row, i) => (
+              <View
+                key={row.key}
+                style={[
+                  styles.checkRow,
+                  i < checklist.length - 1 && {
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+              >
+                <Ionicons name="ellipse-outline" size={18} color={theme.subtitle} />
+                <Text style={[styles.checkLabel, { color: theme.title }]}>{row.label}</Text>
+                <Ionicons
+                  name={row.ok ? 'checkmark-circle' : 'close-circle-outline'}
+                  size={22}
+                  color={row.ok ? '#10B981' : theme.subtitle}
+                />
+              </View>
+            ))}
+          </SettingsCard>
 
-            <Pressable
-              style={[styles.saveBtn, saving && { opacity: 0.75 }]}
-              disabled={saving}
-              onPress={() => void save()}
-            >
-              <ThemedText style={styles.saveBtnText}>{t('businessProfile.save')}</ThemedText>
-            </Pressable>
-          </>
-        )}
-      </ScrollView>
+          <Pressable
+            onPress={() => void save()}
+            disabled={saving}
+            style={({ pressed }) => [styles.saveWide, { opacity: saving ? 0.75 : pressed ? 0.92 : 1 }]}
+          >
+            <Text style={styles.saveWideTxt}>Save Changes</Text>
+          </Pressable>
+        </ScrollView>
+      )}
 
       <Modal visible={currencyOpen} animationType="slide" transparent onRequestClose={() => setCurrencyOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setCurrencyOpen(false)}>
-          <Pressable style={[styles.sheet, { backgroundColor: palette.background }]} onPress={(e) => e.stopPropagation()}>
-            <ThemedText type="subtitle">{t('businessProfile.searchCurrency')}</ThemedText>
-            <TextInput
+          <Pressable style={[styles.sheet, { backgroundColor: theme.cardBg }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={[styles.sheetTitle, { color: theme.title }]}>{t('businessProfile.searchCurrency')}</Text>
+            <ThemedTextInput
               value={currencyQ}
               onChangeText={setCurrencyQ}
               placeholder={t('common.search')}
-              style={[styles.input, { color: palette.text, borderColor: 'rgba(127,127,127,0.35)' }]}
-              placeholderTextColor="rgba(127,127,127,0.7)"
+              style={styles.input}
             />
             <FlatList
               data={filteredCurrencies}
@@ -241,15 +318,15 @@ export default function BusinessProfileScreen() {
               style={{ maxHeight: 360 }}
               renderItem={({ item }) => (
                 <Pressable
-                  style={styles.listRow}
+                  style={[styles.listRow, { borderBottomColor: theme.border }]}
                   onPress={() => {
                     setCurrencyCode(item.code);
                     setCurrencyOpen(false);
                     setCurrencyQ('');
                   }}
                 >
-                  <ThemedText type="defaultSemiBold">{item.code}</ThemedText>
-                  <ThemedText style={{ opacity: 0.75 }}>{item.name}</ThemedText>
+                  <Text style={{ color: theme.title, fontWeight: '700' }}>{item.code}</Text>
+                  <Text style={{ color: theme.subtitle }}>{item.name}</Text>
                 </Pressable>
               )}
             />
@@ -259,14 +336,13 @@ export default function BusinessProfileScreen() {
 
       <Modal visible={tzOpen} animationType="slide" transparent onRequestClose={() => setTzOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setTzOpen(false)}>
-          <Pressable style={[styles.sheet, { backgroundColor: palette.background }]} onPress={(e) => e.stopPropagation()}>
-            <ThemedText type="subtitle">{t('businessProfile.searchTimezone')}</ThemedText>
-            <TextInput
+          <Pressable style={[styles.sheet, { backgroundColor: theme.cardBg }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={[styles.sheetTitle, { color: theme.title }]}>{t('businessProfile.searchTimezone')}</Text>
+            <ThemedTextInput
               value={tzQ}
               onChangeText={setTzQ}
               placeholder={t('common.search')}
-              style={[styles.input, { color: palette.text, borderColor: 'rgba(127,127,127,0.35)' }]}
-              placeholderTextColor="rgba(127,127,127,0.7)"
+              style={styles.input}
             />
             <FlatList
               data={filteredTz}
@@ -275,72 +351,133 @@ export default function BusinessProfileScreen() {
               style={{ maxHeight: 360 }}
               renderItem={({ item }) => (
                 <Pressable
-                  style={styles.listRow}
+                  style={[styles.listRow, { borderBottomColor: theme.border }]}
                   onPress={() => {
                     setTimezone(item);
                     setTzOpen(false);
                     setTzQ('');
                   }}
                 >
-                  <ThemedText>{item}</ThemedText>
+                  <Text style={{ color: theme.title }}>{item}</Text>
                 </Pressable>
               )}
             />
           </Pressable>
         </Pressable>
       </Modal>
-    </ThemedView>
+    </View>
+  );
+}
+
+function FieldRow({
+  icon,
+  label,
+  children,
+  theme,
+  showBorder,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  children: ReactNode;
+  theme: SettingsTheme;
+  showBorder?: boolean;
+}) {
+  return (
+    <View
+      style={[
+        styles.fieldBlock,
+        showBorder ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border } : null,
+      ]}
+    >
+      <View style={styles.fieldHead}>
+        <Ionicons name={icon} size={20} color={theme.subtitle} />
+        <Text style={[styles.fieldLbl, { color: theme.subtitle }]}>{label}</Text>
+      </View>
+      {children}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scroll: { padding: 16, paddingBottom: 48, gap: 8 },
-  warn: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+  root: { flex: 1 },
+  scroll: { padding: 16, paddingBottom: 48 },
+  logoCard: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    width: '100%',
+    maxWidth: 480,
   },
-  logoWrap: { alignItems: 'center', gap: 8, marginVertical: 12 },
-  logoImg: { width: 96, height: 96, borderRadius: 48 },
-  logoPlaceholder: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+  logoCircleWrap: { position: 'relative', width: 100, height: 100 },
+  logoBig: { width: 100, height: 100, borderRadius: 50 },
+  logoPh: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoHint: { opacity: 0.75, fontSize: 13 },
-  label: { marginTop: 8, opacity: 0.85 },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-    padding: 12,
-  },
-  multiline: { minHeight: 72, textAlignVertical: 'top' },
-  selector: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-    padding: 14,
-  },
-  barTrack: {
-    height: 10,
-    borderRadius: 6,
-    backgroundColor: 'rgba(127,127,127,0.2)',
-    overflow: 'hidden',
-    marginTop: 4,
-  },
-  barFill: { height: '100%', backgroundColor: '#4F46E5' },
-  pct: { fontSize: 12, opacity: 0.7 },
-  saveBtn: {
-    marginTop: 20,
+  logoPhTxt: { color: '#fff', fontSize: 32, fontWeight: '800' },
+  camFab: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
     backgroundColor: '#4F46E5',
-    borderRadius: 14,
-    paddingVertical: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  logoHint: { fontSize: 13, marginTop: 8 },
+  secHead: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginLeft: 4,
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  fieldBlock: {
+    padding: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  fieldHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  fieldLbl: { fontSize: 12, fontWeight: '600' },
+  pickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  pickLabel: { fontSize: 12, fontWeight: '600' },
+  pickVal: { fontSize: 15, fontWeight: '600', marginTop: 4 },
+  strengthHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 10,
+  },
+  checkLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
+  saveWide: {
+    marginTop: 16,
+    backgroundColor: '#4F46E5',
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
   },
-  saveBtnText: { color: '#fff', fontWeight: '700' },
+  saveWideTxt: { color: '#fff', fontSize: 16, fontWeight: '700' },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -352,5 +489,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     maxHeight: '85%',
   },
-  listRow: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(127,127,127,0.2)' },
+  sheetTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  input: { marginBottom: 8 },
+  listRow: {
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 4,
+  },
 });

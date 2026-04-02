@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
 import { httpsCallable } from 'firebase/functions';
 
+import { ScreenHeader } from '@/components/common/ScreenHeader';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
+import { useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { firebaseFunctions } from '@/services/firebase';
 import { signOut } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
@@ -23,7 +27,9 @@ function parseCallablePayload(raw: unknown): { success: boolean; data?: unknown;
 }
 
 export default function PrivacyScreen() {
+  const router = useRouter();
   const { t } = useTranslation();
+  const theme = useSettingsTheme();
   const clearUser = useAuthStore((s) => s.clearUser);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -77,6 +83,7 @@ export default function PrivacyScreen() {
         /* session may already be invalid */
       }
       clearUser();
+      router.replace('/welcome');
     } catch (e: unknown) {
       Alert.alert(t('common.error'), e instanceof Error ? e.message : String(e));
     } finally {
@@ -93,10 +100,9 @@ export default function PrivacyScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: theme.screenBg }]}>
+      <ScreenHeader title={t('settings.privacy')} theme={theme} />
       <ScrollView contentContainerStyle={styles.scroll}>
-        <ThemedText type="title">{t('settings.privacy')}</ThemedText>
-
         <View style={styles.card}>
           <ThemedText type="defaultSemiBold">{t('privacyScreen.exportTitle')}</ThemedText>
           <ThemedText style={styles.muted}>{t('privacyScreen.exportDesc')}</ThemedText>
@@ -137,17 +143,17 @@ export default function PrivacyScreen() {
 
       <Modal visible={deleteModalOpen} transparent animationType="fade" onRequestClose={() => setDeleteModalOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setDeleteModalOpen(false)}>
-          <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+          <Pressable onPress={() => {}} style={styles.modalHitArea}>
+            <ThemedView style={styles.modalBox}>
             <ThemedText type="subtitle">{t('privacyScreen.deleteTitle')}</ThemedText>
             <ThemedText style={styles.muted}>{t('privacyScreen.typeDelete')}</ThemedText>
-            <TextInput
+            <ThemedTextInput
               value={deletePhrase}
               onChangeText={setDeletePhrase}
               autoCapitalize="characters"
               autoCorrect={false}
               style={styles.input}
               placeholder="DELETE"
-              placeholderTextColor="rgba(127,127,127,0.6)"
             />
             <View style={styles.modalActions}>
               <Pressable style={styles.modalCancel} onPress={() => setDeleteModalOpen(false)}>
@@ -161,6 +167,7 @@ export default function PrivacyScreen() {
                 <ThemedText style={{ color: '#fff', fontWeight: '700' }}>{t('common.delete')}</ThemedText>
               </Pressable>
             </View>
+          </ThemedView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -215,11 +222,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
+  modalHitArea: {
+    width: '100%',
+    alignItems: 'center',
+  },
   modalBox: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     gap: 8,
+    width: '100%',
+    maxWidth: 400,
   },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 },
   modalCancel: { paddingVertical: 10, paddingHorizontal: 14 },

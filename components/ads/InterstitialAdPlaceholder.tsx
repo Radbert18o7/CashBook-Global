@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import remoteConfig from '@react-native-firebase/remote-config';
+import { getApp } from '@react-native-firebase/app';
+import { fetchAndActivate, getBoolean, getRemoteConfig } from '@react-native-firebase/remote-config';
 
 export function useInterstitialAd() {
   const [enabled, setEnabled] = useState(false);
@@ -8,8 +9,9 @@ export function useInterstitialAd() {
     let cancelled = false;
     async function load() {
       try {
-        await remoteConfig().fetchAndActivate();
-        const v = remoteConfig().getValue('admob_enabled').asBoolean();
+        const rc = getRemoteConfig(getApp());
+        await fetchAndActivate(rc);
+        const v = getBoolean(rc, 'admob_enabled');
         if (!cancelled) setEnabled(!!v);
       } catch {
         if (!cancelled) setEnabled(false);
