@@ -2,6 +2,7 @@ import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, up
 import { writeBatch } from 'firebase/firestore';
 
 import { firestore } from './firebase';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 
 export type PaymentMode = {
   id: string;
@@ -18,12 +19,22 @@ export async function getPaymentModes(bookId: string): Promise<PaymentMode[]> {
 
 export async function createPaymentMode(bookId: string, name: string): Promise<string> {
   const ref = doc(collection(firestore, 'books', bookId, 'payment_modes'));
-  await setDoc(ref, { name, created_at: serverTimestamp(), order: 0 });
+  await setDoc(
+    ref,
+    sanitizeFirestoreData({
+      name,
+      created_at: serverTimestamp(),
+      order: 0,
+    } as Record<string, unknown>),
+  );
   return ref.id;
 }
 
 export async function updatePaymentMode(bookId: string, modeId: string, data: Partial<Pick<PaymentMode, 'name'>>): Promise<void> {
-  await updateDoc(doc(firestore, 'books', bookId, 'payment_modes', modeId), data);
+  await updateDoc(
+    doc(firestore, 'books', bookId, 'payment_modes', modeId),
+    sanitizeFirestoreData(data as Record<string, unknown>),
+  );
 }
 
 export async function deletePaymentMode(bookId: string, modeId: string): Promise<void> {
@@ -33,7 +44,10 @@ export async function deletePaymentMode(bookId: string, modeId: string): Promise
 export async function reorderPaymentModes(bookId: string, orderedIds: string[]): Promise<void> {
   const b = writeBatch(firestore);
   orderedIds.forEach((id, idx) => {
-    b.update(doc(firestore, 'books', bookId, 'payment_modes', id), { order: idx });
+    b.update(
+      doc(firestore, 'books', bookId, 'payment_modes', id),
+      sanitizeFirestoreData({ order: idx } as Record<string, unknown>),
+    );
   });
   await b.commit();
 }

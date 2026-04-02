@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 
 import { firestore } from './firebase';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 import { getUserDisplay } from './userService';
 import { formatMoney } from '@/utils/formatMoney';
 
@@ -46,12 +47,15 @@ export async function appendBookAuditLog(
   action: BookAuditAction,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
-  await addDoc(collection(firestore, 'books', bookId, 'audit_logs'), {
-    action,
-    user_id: userId,
-    ...payload,
-    created_at: serverTimestamp(),
-  });
+  await addDoc(
+    collection(firestore, 'books', bookId, 'audit_logs'),
+    sanitizeFirestoreData({
+      action,
+      user_id: userId,
+      ...payload,
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+  );
 }
 
 export async function getBookAuditLogsPage(

@@ -1,5 +1,6 @@
 import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { firestore } from './firebase';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 
 export type CustomFieldType = 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'DROPDOWN';
 
@@ -45,7 +46,10 @@ export async function updateCustomField(
   fieldId: string,
   data: Partial<Pick<CustomField, 'name' | 'type' | 'required' | 'options' | 'enabled'>>,
 ): Promise<void> {
-  await updateDoc(doc(firestore, 'books', bookId, 'custom_fields', fieldId), data);
+  await updateDoc(
+    doc(firestore, 'books', bookId, 'custom_fields', fieldId),
+    sanitizeFirestoreData(data as Record<string, unknown>),
+  );
 }
 
 export async function deleteCustomField(bookId: string, fieldId: string): Promise<void> {
@@ -55,7 +59,10 @@ export async function deleteCustomField(bookId: string, fieldId: string): Promis
 export async function reorderCustomFields(bookId: string, orderedIds: string[]): Promise<void> {
   const b = writeBatch(firestore);
   orderedIds.forEach((id, idx) => {
-    b.update(doc(firestore, 'books', bookId, 'custom_fields', id), { order: idx });
+    b.update(
+      doc(firestore, 'books', bookId, 'custom_fields', id),
+      sanitizeFirestoreData({ order: idx } as Record<string, unknown>),
+    );
   });
   await b.commit();
 }

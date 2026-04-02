@@ -25,6 +25,8 @@ import { appendBookAuditLog } from './bookAuditService';
 import { getBusiness } from './businessService';
 import { getBook } from './bookService';
 import { firestore } from './firebase';
+import { isFirebasePermissionDenied } from '@/utils/firebaseErrors';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 import type { Entry, EntryFilters, EntryType } from '@/utils/models';
 
 export type DateRange = { from?: string; to?: string }; // ISO dates
@@ -136,43 +138,47 @@ export async function createEntry(
     const summaryRef = doc(firestore, 'books', bookId, 'summaries', summaryMonthKey);
     const bookRef = doc(firestore, 'books', bookId);
 
-    tx.set(entryRef, {
-      book_id: bookId,
-      entry_date: entryDateTs,
-      deleted_at: null,
-      type: data.type,
-      amount: data.amount,
-      remark: data.remark ?? null,
-      contact_id: data.contact_id ?? null,
-      contact_name: data.contact_name ?? null,
-      category_id: data.category_id ?? null,
-      category_name: data.category_name ?? null,
-      payment_mode_id: data.payment_mode_id ?? null,
-      payment_mode_name: data.payment_mode_name ?? null,
-      custom_fields: data.custom_fields ?? {},
-      image_url: data.image_url ?? null,
-      created_by: userId,
-      created_at: serverTimestamp(),
-    });
+    tx.set(
+      entryRef,
+      sanitizeFirestoreData({
+        book_id: bookId,
+        entry_date: entryDateTs,
+        deleted_at: null,
+        type: data.type,
+        amount: data.amount,
+        remark: data.remark ?? null,
+        contact_id: data.contact_id ?? null,
+        contact_name: data.contact_name ?? null,
+        category_id: data.category_id ?? null,
+        category_name: data.category_name ?? null,
+        payment_mode_id: data.payment_mode_id ?? null,
+        payment_mode_name: data.payment_mode_name ?? null,
+        custom_fields: data.custom_fields ?? {},
+        image_url: data.image_url ?? null,
+        created_by: userId,
+        created_at: serverTimestamp(),
+      } as Record<string, unknown>),
+    );
 
     const incIn = data.type === 'CASH_IN' ? data.amount : 0;
     const incOut = data.type === 'CASH_OUT' ? data.amount : 0;
 
     tx.set(
       summaryRef,
-      {
+      sanitizeFirestoreData({
         book_id: bookId,
         month: summaryMonthKey,
         total_in: increment(incIn),
         total_out: increment(incOut),
         entry_count: increment(1),
-      },
+      } as Record<string, unknown>),
       { merge: true },
     );
 
-    tx.update(bookRef, {
-      last_entry_date: serverTimestamp(),
-    });
+    tx.update(
+      bookRef,
+      sanitizeFirestoreData({ last_entry_date: serverTimestamp() } as Record<string, unknown>),
+    );
   });
 
   let currencyCode = 'USD';
@@ -219,20 +225,23 @@ export async function updateEntry(
     const bookRef = doc(firestore, 'books', bookId);
 
     // Update the entry first
-    tx.update(entryRef, {
-      ...(data.type ? { type: data.type } : {}),
-      ...(typeof data.amount === 'number' ? { amount: data.amount } : {}),
-      ...(data.entry_date ? { entry_date: Timestamp.fromDate(data.entry_date) } : {}),
-      ...(data.remark !== undefined ? { remark: data.remark } : {}),
-      ...(data.contact_id !== undefined ? { contact_id: data.contact_id } : {}),
-      ...(data.contact_name !== undefined ? { contact_name: data.contact_name } : {}),
-      ...(data.category_id !== undefined ? { category_id: data.category_id } : {}),
-      ...(data.category_name !== undefined ? { category_name: data.category_name } : {}),
-      ...(data.payment_mode_id !== undefined ? { payment_mode_id: data.payment_mode_id } : {}),
-      ...(data.payment_mode_name !== undefined ? { payment_mode_name: data.payment_mode_name } : {}),
-      ...(data.custom_fields !== undefined ? { custom_fields: data.custom_fields } : {}),
-      ...(data.image_url !== undefined ? { image_url: data.image_url } : {}),
-    });
+    tx.update(
+      entryRef,
+      sanitizeFirestoreData({
+        ...(data.type ? { type: data.type } : {}),
+        ...(typeof data.amount === 'number' ? { amount: data.amount } : {}),
+        ...(data.entry_date ? { entry_date: Timestamp.fromDate(data.entry_date) } : {}),
+        ...(data.remark !== undefined ? { remark: data.remark } : {}),
+        ...(data.contact_id !== undefined ? { contact_id: data.contact_id } : {}),
+        ...(data.contact_name !== undefined ? { contact_name: data.contact_name } : {}),
+        ...(data.category_id !== undefined ? { category_id: data.category_id } : {}),
+        ...(data.category_name !== undefined ? { category_name: data.category_name } : {}),
+        ...(data.payment_mode_id !== undefined ? { payment_mode_id: data.payment_mode_id } : {}),
+        ...(data.payment_mode_name !== undefined ? { payment_mode_name: data.payment_mode_name } : {}),
+        ...(data.custom_fields !== undefined ? { custom_fields: data.custom_fields } : {}),
+        ...(data.image_url !== undefined ? { image_url: data.image_url } : {}),
+      } as Record<string, unknown>),
+    );
 
     // Adjust summaries
     const decIn = prevType === 'CASH_IN' ? prevAmount : 0;
@@ -243,41 +252,44 @@ export async function updateEntry(
     if (prevMonthKey === newMonthKey) {
       tx.set(
         prevSummaryRef,
-        {
+        sanitizeFirestoreData({
           book_id: bookId,
           month: prevMonthKey,
           total_in: increment(incIn - decIn),
           total_out: increment(incOut - decOut),
-        },
+        } as Record<string, unknown>),
         { merge: true },
       );
     } else {
       tx.set(
         prevSummaryRef,
-        {
+        sanitizeFirestoreData({
           book_id: bookId,
           month: prevMonthKey,
           total_in: increment(-decIn),
           total_out: increment(-decOut),
           entry_count: increment(-1),
-        },
+        } as Record<string, unknown>),
         { merge: true },
       );
 
       tx.set(
         newSummaryRef,
-        {
+        sanitizeFirestoreData({
           book_id: bookId,
           month: newMonthKey,
           total_in: increment(incIn),
           total_out: increment(incOut),
           entry_count: increment(1),
-        },
+        } as Record<string, unknown>),
         { merge: true },
       );
     }
 
-    tx.update(bookRef, { last_entry_date: serverTimestamp() });
+    tx.update(
+      bookRef,
+      sanitizeFirestoreData({ last_entry_date: serverTimestamp() } as Record<string, unknown>),
+    );
   });
 
   void appendBookAuditLog(bookId, userId, 'ENTRY_UPDATED', {}).catch(() => undefined);
@@ -297,20 +309,23 @@ export async function deleteEntry(bookId: string, entryId: string, userId: strin
     const prevMonthKey = toMonthKey(prevDate);
     const summaryRef = doc(firestore, 'books', bookId, 'summaries', prevMonthKey);
 
-    tx.update(entryRef, { deleted_at: serverTimestamp() });
+    tx.update(
+      entryRef,
+      sanitizeFirestoreData({ deleted_at: serverTimestamp() } as Record<string, unknown>),
+    );
 
     const decIn = prevType === 'CASH_IN' ? prevAmount : 0;
     const decOut = prevType === 'CASH_OUT' ? prevAmount : 0;
 
     tx.set(
       summaryRef,
-      {
+      sanitizeFirestoreData({
         book_id: bookId,
         month: prevMonthKey,
         total_in: increment(-decIn),
         total_out: increment(-decOut),
         entry_count: increment(-1),
-      },
+      } as Record<string, unknown>),
       { merge: true },
     );
   });
@@ -320,23 +335,34 @@ export async function deleteEntry(bookId: string, entryId: string, userId: strin
 
 /** Sums all monthly `summaries` docs for lifetime totals (home cards, quick stats). */
 export async function getBookAllTimeSummary(bookId: string): Promise<BookSummaryTotals> {
-  const col = collection(firestore, 'books', bookId, 'summaries');
-  const snap = await getDocs(col);
-  let totalIn = 0;
-  let totalOut = 0;
-  let entryCount = 0;
-  snap.forEach((d) => {
-    const data = d.data() as { total_in?: number; total_out?: number; entry_count?: number };
-    totalIn += data.total_in ?? 0;
-    totalOut += data.total_out ?? 0;
-    entryCount += data.entry_count ?? 0;
-  });
-  return {
-    total_in: totalIn,
-    total_out: totalOut,
-    net_balance: totalIn - totalOut,
-    entry_count: entryCount,
+  const empty: BookSummaryTotals = {
+    total_in: 0,
+    total_out: 0,
+    net_balance: 0,
+    entry_count: 0,
   };
+  try {
+    const col = collection(firestore, 'books', bookId, 'summaries');
+    const snap = await getDocs(col);
+    let totalIn = 0;
+    let totalOut = 0;
+    let entryCount = 0;
+    snap.forEach((d) => {
+      const data = d.data() as { total_in?: number; total_out?: number; entry_count?: number };
+      totalIn += data.total_in ?? 0;
+      totalOut += data.total_out ?? 0;
+      entryCount += data.entry_count ?? 0;
+    });
+    return {
+      total_in: totalIn,
+      total_out: totalOut,
+      net_balance: totalIn - totalOut,
+      entry_count: entryCount,
+    };
+  } catch (e) {
+    if (isFirebasePermissionDenied(e)) return empty;
+    throw e;
+  }
 }
 
 /** Totals for a date range from entry rows (matches pie chart / `getEntries` filters, including today/week partial ranges). */

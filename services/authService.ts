@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
+  signInAnonymously,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -12,6 +13,8 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 
 import { firebaseAuth, firestore } from './firebase';
+import { isFirebasePermissionDenied } from '@/utils/firebaseErrors';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 
 import type { UserProfile } from '@/utils/models';
 
@@ -29,16 +32,20 @@ function toUserProfile(u: User): UserProfile {
 
 async function upsertUserProfile(profile: UserProfile) {
   // Security rules require user document access via `users/{uid}`.
-  await setDoc(doc(firestore, 'users', profile.uid), {
-    firebase_uid: profile.uid,
-    email: profile.email,
-    name: profile.name,
-    avatar_url: profile.avatar_url ?? null,
-    language: profile.language,
-    currency: profile.currency,
-    theme: profile.theme,
-    created_at: serverTimestamp(),
-  }, { merge: true });
+  await setDoc(
+    doc(firestore, 'users', profile.uid),
+    sanitizeFirestoreData({
+      firebase_uid: profile.uid,
+      email: profile.email,
+      name: profile.name,
+      avatar_url: profile.avatar_url ?? null,
+      language: profile.language,
+      currency: profile.currency,
+      theme: profile.theme,
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+    { merge: true },
+  );
 }
 
 export async function signInWithGoogleTokens(params: { idToken: string; accessToken?: string }): Promise<void> {
@@ -68,17 +75,41 @@ export async function signInWithEmail(email: string, password: string): Promise<
 export async function signUpWithEmail(email: string, password: string, name: string): Promise<void> {
   const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
   const user = cred.user;
-  await setDoc(doc(firestore, 'users', user.uid), {
-    firebase_uid: user.uid,
-    email: email,
-    name,
-    avatar_url: null,
-    language: 'en',
-    currency: 'USD',
-    theme: 'system',
-    onboarding_complete: false,
-    created_at: serverTimestamp(),
-  }, { merge: true });
+  await setDoc(
+    doc(firestore, 'users', user.uid),
+    sanitizeFirestoreData({
+      firebase_uid: user.uid,
+      email,
+      name,
+      avatar_url: null,
+      language: 'en',
+      currency: 'USD',
+      theme: 'system',
+      onboarding_complete: false,
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+    { merge: true },
+  );
+}
+
+export async function signInAsGuest(): Promise<void> {
+  const cred = await signInAnonymously(firebaseAuth);
+  const u = cred.user;
+  await setDoc(
+    doc(firestore, 'users', u.uid),
+    sanitizeFirestoreData({
+      firebase_uid: u.uid,
+      email: '',
+      name: 'Guest',
+      avatar_url: null,
+      language: 'en',
+      currency: 'USD',
+      theme: 'system',
+      onboarding_complete: false,
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+    { merge: true },
+  );
 }
 
 export async function signOut(): Promise<void> {
@@ -100,12 +131,40 @@ export function getCurrentUser(): UserProfile | null {
 }
 
 export async function getOnboardingComplete(uid: string): Promise<boolean> {
-  const s = await getDoc(doc(firestore, 'users', uid));
-  if (!s.exists()) return false;
-  return s.data()?.onboarding_complete === true;
+  try {
+    const s = await getDoc(doc(firestore, 'users', uid));
+    if (!s.exists()) return false;
+    return s.data()?.onboarding_complete === true;
+  } catch (e) {
+    if (isFirebasePermissionDenied(e)) return false;
+    throw e;
+  }
 }
 
 export async function setOnboardingComplete(uid: string): Promise<void> {
-  await updateDoc(doc(firestore, 'users', uid), { onboarding_complete: true });
+  await updateDoc(
+    doc(firestore, 'users', uid),
+    sanitizeFirestoreData({ onboarding_complete: true } as Record<string, unknown>),
+  );
+}
+
+export async function getUserProfileDoc(uid: string): Promise<Record<string, unknown> | null> {
+  const s = await getDoc(doc(firestore, 'users', uid));
+  if (!s.exists()) return null;
+  return s.data() ?? null;
+}
+
+export async function updateUserProfileDoc(
+  uid: string,
+  data: Partial<{
+    name: string;
+    phone: string;
+    avatar_url: string | null;
+    language: string;
+    currency: string;
+    theme: string;
+  }>,
+): Promise<void> {
+  await updateDoc(doc(firestore, 'users', uid), sanitizeFirestoreData(data as Record<string, unknown>));
 }
 

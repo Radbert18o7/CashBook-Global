@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 
 import { firestore } from './firebase';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 import type { Book, BookMemberRole } from '@/utils/models';
 
 const defaultCategories = ['Food', 'Transport', 'Shopping', 'Bills', 'Salary', 'Sales', 'Other'];
@@ -63,36 +64,48 @@ export function mergeBookFieldSettings(raw: Record<string, unknown> | undefined)
 }
 
 export async function createBook(businessId: string, name: string, userId: string) {
-  const bookDoc = await addDoc(collection(firestore, 'books'), {
-    business_id: businessId,
-    name,
-    created_by: userId,
-    created_at: serverTimestamp(),
-    settings: {},
-  });
+  const bookDoc = await addDoc(
+    collection(firestore, 'books'),
+    sanitizeFirestoreData({
+      business_id: businessId,
+      name,
+      created_by: userId,
+      created_at: serverTimestamp(),
+      settings: {},
+    } as Record<string, unknown>),
+  );
 
   const bookId = bookDoc.id;
 
-  await setDoc(doc(firestore, 'books', bookId, 'members', userId), {
-    user_id: userId,
-    book_id: bookId,
-    role: 'PRIMARY_ADMIN' satisfies BookMemberRole,
-    created_at: serverTimestamp(),
-  });
+  await setDoc(
+    doc(firestore, 'books', bookId, 'members', userId),
+    sanitizeFirestoreData({
+      user_id: userId,
+      book_id: bookId,
+      role: 'PRIMARY_ADMIN' satisfies BookMemberRole,
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+  );
 
   await Promise.all([
     ...defaultCategories.map((c) =>
-      setDoc(doc(firestore, 'books', bookId, 'categories', c), {
-        name: c,
-        icon: null,
-        created_at: serverTimestamp(),
-      }),
+      setDoc(
+        doc(firestore, 'books', bookId, 'categories', c),
+        sanitizeFirestoreData({
+          name: c,
+          icon: null,
+          created_at: serverTimestamp(),
+        } as Record<string, unknown>),
+      ),
     ),
     ...defaultPaymentModes.map((m) =>
-      setDoc(doc(firestore, 'books', bookId, 'payment_modes', m), {
-        name: m,
-        created_at: serverTimestamp(),
-      }),
+      setDoc(
+        doc(firestore, 'books', bookId, 'payment_modes', m),
+        sanitizeFirestoreData({
+          name: m,
+          created_at: serverTimestamp(),
+        } as Record<string, unknown>),
+      ),
     ),
   ]);
 
@@ -100,7 +113,7 @@ export async function createBook(businessId: string, name: string, userId: strin
 }
 
 export async function updateBook(id: string, data: Partial<Pick<Book, 'name'>>) {
-  await updateDoc(doc(firestore, 'books', id), data);
+  await updateDoc(doc(firestore, 'books', id), sanitizeFirestoreData(data as Record<string, unknown>));
 }
 
 export async function deleteBook(id: string) {
@@ -113,6 +126,9 @@ export async function getBookSettings(bookId: string): Promise<Record<string, un
 }
 
 export async function updateBookSettings(bookId: string, settings: Record<string, unknown>) {
-  await updateDoc(doc(firestore, 'books', bookId), { settings });
+  await updateDoc(
+    doc(firestore, 'books', bookId),
+    sanitizeFirestoreData({ settings } as Record<string, unknown>),
+  );
 }
 

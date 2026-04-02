@@ -1,9 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
+  getAuth,
+  getReactNativePersistence,
   initializeAuth,
   type Auth,
   type AuthError,
-  getAuth,
 } from 'firebase/auth';
 import {
   type FirestoreError,
@@ -19,6 +21,7 @@ import { getFunctions } from 'firebase/functions';
 import { Platform } from 'react-native';
 
 import { firebaseConfig, isFirebaseConfigPlaceholder } from './firebaseConfig';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 
 function initializeFirebaseApp() {
   if (isFirebaseConfigPlaceholder) {
@@ -34,16 +37,22 @@ function initializeFirebaseApp() {
 export const firebaseApp = initializeFirebaseApp();
 
 function ensureAuth(): Auth {
-  try {
+  if (Platform.OS === 'web') {
     return getAuth(firebaseApp);
+  }
+
+  try {
+    return initializeAuth(firebaseApp, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
   } catch {
-    // Default persistence is fine for this scaffold.
-    // React Native persistence strategy can be implemented later.
-    return initializeAuth(firebaseApp);
+    return getAuth(firebaseApp);
   }
 }
 
 export const firebaseAuth = ensureAuth();
+/** Alias for modular-style `auth` imports in app code. */
+export const auth = firebaseAuth;
 export const firestore = getFirestore(firebaseApp);
 
 /** Same region as `functions/src/index.ts` (`setGlobalOptions`). */
@@ -84,7 +93,9 @@ export async function testFirestoreConnectivity(): Promise<FirestoreConnectivity
 
   try {
     const ref = doc(firestore, '_meta', 'connectivity');
-    await setDoc(ref, { ping: serverTimestamp() }, { merge: true });
+    await setDoc(ref, sanitizeFirestoreData({ ping: serverTimestamp() } as Record<string, unknown>), {
+      merge: true,
+    });
     await getDoc(ref);
     return { ok: true, kind: 'reached_backend' };
   } catch (err) {

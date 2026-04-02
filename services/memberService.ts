@@ -1,5 +1,6 @@
 import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { firestore } from './firebase';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 import type { BookMemberRole } from '@/utils/models';
 
 export type BookMember = {
@@ -27,18 +28,24 @@ export async function addBookMember(bookId: string, email: string, role: BookMem
     throw new Error('User not found. For invites by email, use a backend callable function.');
   }
   const userId = userDoc.id;
-  await setDoc(doc(firestore, 'books', bookId, 'members', userId), {
-    user_id: userId,
-    book_id: bookId,
-    role,
-    permissions: {},
-    created_at: serverTimestamp(),
-  });
+  await setDoc(
+    doc(firestore, 'books', bookId, 'members', userId),
+    sanitizeFirestoreData({
+      user_id: userId,
+      book_id: bookId,
+      role,
+      permissions: {},
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+  );
   return userId;
 }
 
 export async function updateBookMemberRole(bookId: string, userId: string, role: BookMemberRole): Promise<void> {
-  await updateDoc(doc(firestore, 'books', bookId, 'members', userId), { role });
+  await updateDoc(
+    doc(firestore, 'books', bookId, 'members', userId),
+    sanitizeFirestoreData({ role } as Record<string, unknown>),
+  );
 }
 
 export async function removeBookMember(bookId: string, userId: string): Promise<void> {

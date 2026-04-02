@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 
 import { firestore } from './firebase';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 
 import type { Business, BookMemberRole } from '@/utils/models';
 
@@ -27,29 +28,49 @@ export async function getBusinesses(userId: string): Promise<Business[]> {
 }
 
 export async function createBusiness(data: { name: string; logo_url?: string }, userId: string) {
-  const businessDoc = await addDoc(collection(firestore, 'businesses'), {
-    name: data.name,
-    owner_id: userId,
-    logo_url: data.logo_url ?? null,
-    created_at: serverTimestamp(),
-  });
+  const businessDoc = await addDoc(
+    collection(firestore, 'businesses'),
+    sanitizeFirestoreData({
+      name: data.name,
+      owner_id: userId,
+      logo_url: data.logo_url ?? null,
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+  );
 
   const businessId = businessDoc.id;
-  await setDoc(doc(firestore, 'businesses', businessId, 'members', userId), {
-    user_id: userId,
-    business_id: businessId,
-    role: 'PRIMARY_ADMIN' satisfies BookMemberRole,
-    created_at: serverTimestamp(),
-  });
+  await setDoc(
+    doc(firestore, 'businesses', businessId, 'members', userId),
+    sanitizeFirestoreData({
+      user_id: userId,
+      business_id: businessId,
+      role: 'PRIMARY_ADMIN' satisfies BookMemberRole,
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+  );
 
   return businessId;
 }
 
 export async function updateBusiness(
   businessId: string,
-  data: Partial<Pick<Business, 'name' | 'logo_url' | 'address' | 'currency_code' | 'timezone'>>,
+  data: Partial<{
+    name: string;
+    logo_url: string | null;
+    address: string | null;
+    phone: string | null;
+    website: string | null;
+    currency_code: string | null;
+    timezone: string | null;
+  }>,
 ) {
-  await updateDoc(doc(firestore, 'businesses', businessId), data);
+  await updateDoc(
+    doc(firestore, 'businesses', businessId),
+    sanitizeFirestoreData({
+      ...(data as Record<string, unknown>),
+      updated_at: serverTimestamp(),
+    } as Record<string, unknown>),
+  );
 }
 
 export async function getBusiness(businessId: string): Promise<Business | null> {
@@ -68,13 +89,16 @@ export async function addMember(
   role: BookMemberRole,
   permissions: Record<string, unknown> = {},
 ) {
-  await setDoc(doc(firestore, 'businesses', businessId, 'members', userId), {
-    user_id: userId,
-    business_id: businessId,
-    role,
-    permissions,
-    created_at: serverTimestamp(),
-  });
+  await setDoc(
+    doc(firestore, 'businesses', businessId, 'members', userId),
+    sanitizeFirestoreData({
+      user_id: userId,
+      business_id: businessId,
+      role,
+      permissions,
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+  );
 }
 
 export async function removeMember(businessId: string, userId: string) {
@@ -82,7 +106,10 @@ export async function removeMember(businessId: string, userId: string) {
 }
 
 export async function updateMemberRole(businessId: string, userId: string, role: BookMemberRole) {
-  await updateDoc(doc(firestore, 'businesses', businessId, 'members', userId), { role });
+  await updateDoc(
+    doc(firestore, 'businesses', businessId, 'members', userId),
+    sanitizeFirestoreData({ role } as Record<string, unknown>),
+  );
 }
 
 export async function getBusinessMembers(

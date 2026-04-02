@@ -1,6 +1,7 @@
 import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 
 import { firestore } from './firebase';
+import { sanitizeFirestoreData } from '@/utils/sanitizeFirestoreData';
 
 export type Contact = {
   id: string;
@@ -18,17 +19,23 @@ export async function getContacts(bookId: string): Promise<Contact[]> {
 
 export async function createContact(bookId: string, data: { name: string; phone?: string | null; email?: string | null }): Promise<string> {
   const ref = doc(collection(firestore, 'books', bookId, 'contacts'));
-  await setDoc(ref, {
-    name: data.name,
-    phone: data.phone ?? null,
-    email: data.email ?? null,
-    created_at: serverTimestamp(),
-  });
+  await setDoc(
+    ref,
+    sanitizeFirestoreData({
+      name: data.name,
+      phone: data.phone ?? null,
+      email: data.email ?? null,
+      created_at: serverTimestamp(),
+    } as Record<string, unknown>),
+  );
   return ref.id;
 }
 
 export async function updateContact(bookId: string, contactId: string, data: Partial<Pick<Contact, 'name' | 'phone' | 'email'>>): Promise<void> {
-  await updateDoc(doc(firestore, 'books', bookId, 'contacts', contactId), data);
+  await updateDoc(
+    doc(firestore, 'books', bookId, 'contacts', contactId),
+    sanitizeFirestoreData(data as Record<string, unknown>),
+  );
 }
 
 export async function deleteContact(bookId: string, contactId: string): Promise<void> {

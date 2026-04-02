@@ -13,6 +13,7 @@ export interface UserProfile {
   email: string;
   name: string;
   avatar_url?: string;
+  phone?: string;
   language: string;
   currency: CurrencyCode;
   theme: ThemeMode;
@@ -25,6 +26,8 @@ export interface Business {
   created_at?: unknown;
   logo_url?: string;
   address?: string;
+  phone?: string;
+  website?: string;
   currency_code?: string;
   timezone?: string;
 }
