@@ -37,7 +37,7 @@ export async function createCustomField(
   if (data.type === 'DROPDOWN' && Array.isArray(data.options)) {
     payload.options = data.options.filter((o) => typeof o === 'string' && o.trim());
   }
-  await setDoc(ref, payload);
+  await setDoc(ref, sanitizeFirestoreData(payload));
   return ref.id;
 }
 
