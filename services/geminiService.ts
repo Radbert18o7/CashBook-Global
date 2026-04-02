@@ -25,12 +25,27 @@ type GeminiCategoryResult = {
   reasoning: string;
 };
 
-type GeminiInsight = {
+export type GeminiInsight = {
   id: string;
   emoji: string;
   headline: string;
   detail: string;
   trend: 'up' | 'down' | 'flat';
+};
+
+/** Minimum book entries (for the summarized period) before calling Gemini for insights (BRD / BUG-014). */
+export const MIN_ENTRIES_FOR_AI_INSIGHTS = 5;
+
+export type SpendingInsightsSkipReason =
+  | 'too_few_entries'
+  | 'not_signed_in'
+  | 'callable_disabled'
+  | 'rate_limited'
+  | 'request_failed';
+
+export type SpendingInsightsOutcome = {
+  insights: GeminiInsight[];
+  skipReason?: SpendingInsightsSkipReason;
 };
 
 /** Same calendar day as `functions/src/index.ts` `rateLimitAi` (`toISOString().slice(0, 10)`). */
@@ -111,37 +126,50 @@ export async function getSpendingInsights(
   prevSummary: { total_in: number; total_out: number; net_balance: number; entry_count: number } | null,
   language: string,
   currency: string,
-): Promise<GeminiInsight[]> {
+): Promise<SpendingInsightsOutcome> {
   void contacts;
   void paymentModes;
   void prevSummary;
 
+  if (summary.entry_count < MIN_ENTRIES_FOR_AI_INSIGHTS) {
+    return { insights: [], skipReason: 'too_few_entries' };
+  }
+
+  if (!USE_GEMINI_CALLABLE) {
+    return { insights: [], skipReason: 'callable_disabled' };
+  }
+
+  if (!firebaseAuth.currentUser) {
+    return { insights: [], skipReason: 'not_signed_in' };
+  }
+
   const uid = rateLimitUserId();
-  if (USE_GEMINI_CALLABLE && firebaseAuth.currentUser) {
+  try {
     await assertUnderAiLimit(uid, 'insights', 10);
+  } catch {
+    return { insights: [], skipReason: 'rate_limited' };
   }
 
-  if (USE_GEMINI_CALLABLE && firebaseAuth.currentUser) {
-    try {
-      const fn = httpsCallable(firebaseFunctions, 'getSpendingInsights');
-      const res = await fn({
-        summary,
-        categories,
-        language,
-        currency,
-      });
-      const data =
-        unwrapCallable<{ insights?: GeminiInsight[] }>(res.data) ?? (res.data as { insights?: GeminiInsight[] });
-      if (Array.isArray(data.insights)) {
-        return data.insights.filter(
-          (x) => x && typeof x.id === 'string' && typeof x.headline === 'string',
-        ) as GeminiInsight[];
-      }
-    } catch {
-      // fall through
+  try {
+    const fn = httpsCallable(firebaseFunctions, 'getSpendingInsights');
+    const res = await fn({
+      summary,
+      categories,
+      language,
+      currency,
+    });
+    const data =
+      unwrapCallable<{ insights?: GeminiInsight[] }>(res.data) ?? (res.data as { insights?: GeminiInsight[] });
+    if (Array.isArray(data.insights)) {
+      const insights = data.insights.filter(
+        (x) => x && typeof x.id === 'string' && typeof x.headline === 'string',
+      ) as GeminiInsight[];
+      return { insights };
     }
+  } catch {
+    return { insights: [], skipReason: 'request_failed' };
   }
 
-  return [];
+  return { insights: [], skipReason: 'request_failed' };
 }
 

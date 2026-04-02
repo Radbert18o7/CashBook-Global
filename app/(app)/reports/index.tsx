@@ -1,22 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from 'react-native';
-import { PieChart } from 'react-native-chart-kit';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import CategoryBreakdownVisualization from '@/components/reports/CategoryBreakdownVisualization';
 import { useColors } from '@/hooks/useColors';
 import { useSafeArea } from '@/hooks/useSafeArea';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useAuthStore } from '@/store/authStore';
 import { useBookStore } from '@/store/bookStore';
 import { getBookSummary, getEntries } from '@/services/entryService';
+import {
+  getSpendingInsights,
+  MIN_ENTRIES_FOR_AI_INSIGHTS,
+  type GeminiInsight,
+  type SpendingInsightsSkipReason,
+} from '@/services/geminiService';
 import BannerAdPlaceholder from '@/components/ads/BannerAdPlaceholder';
 import { generatePDF } from '@/services/pdfService';
 import * as Sharing from 'expo-sharing';
@@ -25,9 +24,30 @@ import { aggregateCashOutByCategory } from '@/utils/aggregateByCategory';
 import { formatMoney } from '@/utils/formatMoney';
 import { toLocalISODate } from '@/utils/localISODate';
 
+function skipReasonMessage(
+  t: (k: string, o?: Record<string, unknown>) => string,
+  reason: SpendingInsightsSkipReason,
+): string {
+  switch (reason) {
+    case 'too_few_entries':
+      return t('reports.insightsNeedMoreEntries', { count: MIN_ENTRIES_FOR_AI_INSIGHTS });
+    case 'not_signed_in':
+      return t('reports.insightsSignIn');
+    case 'callable_disabled':
+      return t('ai.unavailable');
+    case 'rate_limited':
+      return t('ai.limitReached');
+    case 'request_failed':
+      return t('ai.unavailable');
+    default:
+      return t('ai.unavailable');
+  }
+}
+
 export default function ReportsScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const colors = useColors();
+  const currency = useAuthStore((s) => s.user?.currency ?? 'USD');
   const { scrollBottomPad } = useSafeArea();
   const { width } = useWindowDimensions();
   const { currentBook } = useBookStore();
@@ -42,6 +62,11 @@ export default function ReportsScreen() {
   const [exporting, setExporting] = useState(false);
   const [rangeEntries, setRangeEntries] = useState<Entry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
+
+  const [aiInsights, setAiInsights] = useState<GeminiInsight[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsRequested, setInsightsRequested] = useState(false);
+  const [insightsSkipReason, setInsightsSkipReason] = useState<SpendingInsightsSkipReason | undefined>();
 
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -101,7 +126,40 @@ export default function ReportsScreen() {
     };
   }, [currentBook?.id, dateRange]);
 
+  useEffect(() => {
+    setAiInsights([]);
+    setInsightsRequested(false);
+    setInsightsSkipReason(undefined);
+  }, [currentBook?.id, dateRange]);
+
   const categorySlices = useMemo(() => aggregateCashOutByCategory(rangeEntries), [rangeEntries]);
+
+  const insightCategories = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of rangeEntries) {
+      const n = e.category_name?.trim();
+      if (n) s.add(n);
+    }
+    return [...s];
+  }, [rangeEntries]);
+
+  const insightContacts = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of rangeEntries) {
+      const n = e.contact_name?.trim();
+      if (n) s.add(n);
+    }
+    return [...s];
+  }, [rangeEntries]);
+
+  const insightPaymentModes = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of rangeEntries) {
+      const n = e.payment_mode_name?.trim();
+      if (n) s.add(n);
+    }
+    return [...s];
+  }, [rangeEntries]);
 
   const pieData = useMemo(
     () =>
@@ -138,6 +196,29 @@ export default function ReportsScreen() {
       }
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function handleGenerateInsights() {
+    if (!currentBook?.id || !summary) return;
+    setInsightsLoading(true);
+    setInsightsRequested(true);
+    setInsightsSkipReason(undefined);
+    setAiInsights([]);
+    try {
+      const out = await getSpendingInsights(
+        summary,
+        insightCategories,
+        insightContacts,
+        insightPaymentModes,
+        null,
+        i18n.language ?? 'en',
+        currency,
+      );
+      setAiInsights(out.insights);
+      setInsightsSkipReason(out.skipReason);
+    } finally {
+      setInsightsLoading(false);
     }
   }
 
@@ -206,34 +287,65 @@ export default function ReportsScreen() {
           <ActivityIndicator style={styles.chartSpinner} />
         ) : pieData.length === 0 ? (
           <ThemedText style={styles.muted}>{t('entry.noEntries')}</ThemedText>
-        ) : Platform.OS === 'web' ? (
-          <View style={styles.webLegend}>
-            {categorySlices.map((s) => {
-              const pct = totalCategoryOut > 0 ? Math.round((s.amount / totalCategoryOut) * 100) : 0;
-              return (
-                <View key={s.name} style={styles.webLegendRow}>
-                  <View style={[styles.swatch, { backgroundColor: s.color }]} />
-                  <ThemedText style={styles.webLegendName}>{s.name}</ThemedText>
-                  <ThemedText style={styles.webLegendPct}>{pct}%</ThemedText>
-                  <ThemedText style={styles.webLegendAmt}>{formatMoney(s.amount)}</ThemedText>
-                </View>
-              );
-            })}
-          </View>
         ) : (
-          <PieChart
-            data={pieData}
-            width={chartWidth}
-            height={220}
-            chartConfig={{
-              color: (opacity = 1) => `rgba(79, 70, 229, ${opacity})`,
-            }}
-            accessor="population"
-            backgroundColor="transparent"
-            paddingLeft="0"
-            absolute
+          <CategoryBreakdownVisualization
+            categorySlices={categorySlices}
+            pieData={pieData}
+            totalCategoryOut={totalCategoryOut}
+            chartWidth={chartWidth}
+            formatMoney={formatMoney}
+            currency={currency}
           />
         )}
+
+        <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+          {t('reports.aiInsights')}
+        </ThemedText>
+        {summary && summary.entry_count < MIN_ENTRIES_FOR_AI_INSIGHTS ? (
+          <ThemedText style={styles.muted}>
+            {t('reports.insightsNeedMoreEntries', { count: MIN_ENTRIES_FOR_AI_INSIGHTS })}
+          </ThemedText>
+        ) : null}
+        <Pressable
+          onPress={() => void handleGenerateInsights()}
+          style={({ pressed }) => [
+            styles.insightsBtn,
+            pressed && styles.pressed,
+            (insightsLoading || !summary || (summary.entry_count ?? 0) < MIN_ENTRIES_FOR_AI_INSIGHTS) &&
+              styles.insightsBtnDisabled,
+          ]}
+          disabled={insightsLoading || !summary || (summary.entry_count ?? 0) < MIN_ENTRIES_FOR_AI_INSIGHTS}
+        >
+          {insightsLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <ThemedText type="defaultSemiBold" style={styles.insightsBtnText}>
+              {t('reports.generateInsights')}
+            </ThemedText>
+          )}
+        </Pressable>
+        {insightsRequested && !insightsLoading && insightsSkipReason ? (
+          <ThemedText style={styles.muted}>{skipReasonMessage(t, insightsSkipReason)}</ThemedText>
+        ) : null}
+        {insightsRequested && !insightsLoading && !insightsSkipReason && aiInsights.length === 0 ? (
+          <ThemedText style={styles.muted}>{t('reports.noInsights')}</ThemedText>
+        ) : null}
+        {aiInsights.length > 0 ? (
+          <View style={styles.insightsList}>
+            {aiInsights.map((row) => (
+              <View
+                key={row.id}
+                style={[styles.insightCard, { borderColor: colors.borderLight, backgroundColor: colors.surface }]}
+              >
+                <ThemedText style={styles.insightEmoji}>{row.emoji}</ThemedText>
+                <View style={styles.insightBody}>
+                  <ThemedText type="defaultSemiBold">{row.headline}</ThemedText>
+                  {row.detail ? <ThemedText style={styles.insightDetail}>{row.detail}</ThemedText> : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <Pressable
           onPress={() => void handleExportPdf()}
@@ -282,6 +394,27 @@ const styles = StyleSheet.create({
   sectionTitle: { marginTop: 8 },
   chartSpinner: { marginVertical: 24 },
   muted: { opacity: 0.7 },
+  insightsBtn: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#0F766E',
+    marginTop: 4,
+  },
+  insightsBtnDisabled: { opacity: 0.45 },
+  insightsBtnText: { color: '#fff' },
+  insightsList: { gap: 10, marginTop: 8 },
+  insightCard: {
+    flexDirection: 'row',
+    gap: 12,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    alignItems: 'flex-start',
+  },
+  insightEmoji: { fontSize: 22, lineHeight: 26 },
+  insightBody: { flex: 1, gap: 4 },
+  insightDetail: { opacity: 0.85, fontSize: 14 },
   exportBtn: {
     borderRadius: 12,
     paddingVertical: 14,
@@ -290,10 +423,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   pressed: { opacity: 0.9 },
-  webLegend: { gap: 10, marginTop: 4 },
-  webLegendRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  swatch: { width: 14, height: 14, borderRadius: 3 },
-  webLegendName: { flex: 1 },
-  webLegendPct: { opacity: 0.8, width: 40, textAlign: 'right' },
-  webLegendAmt: { fontWeight: '700', minWidth: 88, textAlign: 'right' },
 });

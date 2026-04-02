@@ -70,6 +70,8 @@
     "exportPdf": "Export PDF",
     "aiInsights": "AI Insights",
     "generateInsights": "Generate Insights",
+    "insightsNeedMoreEntries": "Add at least {{count}} entries in this period to generate AI insights.",
+    "insightsSignIn": "Sign in to generate AI insights.",
     "noInsights": "No insights available",
     "insightsLoading": "Analyzing your finances...",
     "categoryBreakdown": "Category Breakdown",

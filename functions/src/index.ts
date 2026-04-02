@@ -29,6 +29,9 @@ function resolveGeminiKey(): string {
 
 const MODEL = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
 
+/** Align with app `MIN_ENTRIES_FOR_AI_INSIGHTS` (BUG-014): skip Gemini when the period has too few entries. */
+const MIN_ENTRIES_FOR_AI_INSIGHTS = 5;
+
 type Ok<T> = { success: true; data: T };
 type Fail = { success: false; error: { code: string; message: string } };
 
@@ -275,6 +278,14 @@ export const geminiCategorize = onCall(async (request) => {
 export const getSpendingInsights = onCall(async (request) => {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required');
   const uid = request.auth.uid;
+  const data = request.data as { summary?: Record<string, unknown>; categories?: string[] };
+  const entryCount =
+    typeof data.summary?.entry_count === 'number' && Number.isFinite(data.summary.entry_count)
+      ? Math.max(0, Math.floor(data.summary.entry_count))
+      : 0;
+  if (entryCount < MIN_ENTRIES_FOR_AI_INSIGHTS) {
+    return ok({ insights: [] as unknown[] });
+  }
   const apiKey = resolveGeminiKey();
   if (!apiKey) {
     return ok({ insights: [] as unknown[] });
@@ -285,7 +296,6 @@ export const getSpendingInsights = onCall(async (request) => {
     if (e instanceof HttpsError) throw e;
     throw e;
   }
-  const data = request.data as { summary?: Record<string, unknown>; categories?: string[] };
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: MODEL });
