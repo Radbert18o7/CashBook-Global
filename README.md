@@ -1,50 +1,49 @@
-# Welcome to your Expo app 👋
+# Cashbook Global
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Cross-platform cashbook app built with [Expo](https://expo.dev) (React Native) and [Expo Router](https://docs.expo.dev/router/introduction/). Targets Android, iOS, and static web export.
 
-## Get started
+## Stack
 
-1. Install dependencies
+- **UI:** React 19, NativeWind / Tailwind, Reanimated, gesture handler  
+- **Data:** Firebase (client SDK; native uses `@react-native-firebase`), Cloud Functions in `functions/`  
+- **i18n:** i18next; locale files under `i18n/locales/` (run `npm run i18n:build` after structural changes)  
+- **State:** Zustand (`store/`)
 
-   ```bash
-   npm install
-   ```
+## Prerequisites
 
-2. Start the app
+- Node.js LTS and npm  
+- For Android/iOS native builds: follow [Expo development builds](https://docs.expo.dev/develop/development-builds/introduction/)  
+- Firebase and other secrets: copy `.env` from your team (see `app.json` / Expo env usage)
 
-   ```bash
-   npx expo start
-   ```
+## Scripts
 
-In the output, you'll find options to open the app in a
+| Command | Purpose |
+|--------|---------|
+| `npm install` | Install dependencies |
+| `npx expo start` | Dev server (same as `npm run start`) |
+| `npm run android` / `npm run ios` | Run native projects |
+| `npm run web` | Web dev |
+| `npm run export:web` | Static web export |
+| `npm run lint` | ESLint |
+| `npm test` | Jest (`__tests__/`) |
+| `npm run i18n:build` | Regenerate flat locale JSON |
+| `npm run deploy:firestore-rules` | Deploy Firestore rules (`firebase.json`) |
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Project layout
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- `app/` — file-based routes (`(auth)`, `(app)`, home, reports, settings)  
+- `components/` — shared UI  
+- `services/` — Firebase and integrations  
+- `functions/` — Firebase Cloud Functions (TypeScript)
 
-## Get a fresh project
+## Fresh Expo scaffold
 
-When you're ready, run:
+To reset the starter layout (moves current `app` to `app-example`), use:
 
 ```bash
 npm run reset-project
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Engineering delivery for this repo is owned by the **Founding Engineer** agent in Paperclip. For a separate **human** contractor or hiring approval, add a comment on the tracking issue so PM can open the right path.
