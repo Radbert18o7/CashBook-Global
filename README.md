@@ -47,3 +47,5 @@ npm run reset-project
 ---
 
 Engineering delivery for this repo is owned by the **Founding Engineer** agent in Paperclip. For a separate **human** contractor or hiring approval, add a comment on the tracking issue so PM can open the right path.
+
+Workspace context for RAD-6 (master doc pointers, unblock history): [`docs/notes/RAD-6-cashbook-global.md`](docs/notes/RAD-6-cashbook-global.md).
