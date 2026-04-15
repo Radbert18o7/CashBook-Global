@@ -1,8 +1,34 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // Users: allow read, write if the user is authenticated as themselves
+    match /Users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Organizations: allow read if the user is a member of the organization
+    match /Organizations/{orgId} {
+      allow read: if request.auth != null && exists(/databases/$(database)/documents/OrganizationMembers where { userId == request.auth.uid && orgId == orgId });
+    }
+    
+    // Organization Members: allow read if the user is a member of the organization
+    match /OrganizationMembers/{memberId} {
+      allow read: if request.auth != null && exists(/databases/$(database)/documents/OrganizationMembers where { userId == request.auth.uid && orgId == resource.data.orgId });
+    }
+    
+    // Accounts: allow read, write if the user is a member of the organization that owns the account
+    match /Accounts/{accountId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/OrganizationMembers where { userId == request.auth.uid && orgId == resource.data.orgId });
+    }
+    
+    // Transactions: allow read, write if the user is a member of the organization that owns the account associated with the transaction
+    match /Transactions/{txId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/OrganizationMembers where { userId == request.auth.uid && orgId == get(/databases/$(database)/documents/Accounts/$(resource.data.accountId)).data.orgId });
+    }
+    
+    // Categories: allow read, write if the user is a member of the organization that owns the category
+    match /Categories/{categoryId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/OrganizationMembers where { userId == request.auth.uid && orgId == resource.data.orgId });
     }
   }
 }

@@ -18,6 +18,7 @@ import { ThemedTextInput } from '@/components/themed-text-input';
 import { firebaseAuth } from '@/services/firebase';
 import { getUserProfileDoc, updateUserProfileDoc } from '@/services/authService';
 import { uploadImage } from '@/services/cloudinaryService';
+import { useColors } from '@/hooks/useColors';
 import { useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { useAuthStore } from '@/store/authStore';
 
@@ -28,6 +29,7 @@ function isGoogleUser(): boolean {
 
 export default function ProfileScreen() {
   const theme = useSettingsTheme();
+  const colors = useColors();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
 
@@ -114,7 +116,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.screenBg }]}>
-      <ScreenHeader title="Your Profile" theme={theme} />
+      <ScreenHeader title="Your Profile" theme={theme} colors={colors} />
       {loading ? (
         <ActivityIndicator style={{ marginTop: 32 }} />
       ) : (
@@ -124,13 +126,13 @@ export default function ProfileScreen() {
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
               ) : (
-                <View style={[styles.avatarPh, { backgroundColor: '#4F46E5' }]}>
+                <View style={[styles.avatarPh, { backgroundColor: colors.primary }]}>
                   <Text style={styles.avatarLetter}>
                     {(name || user?.name || '?').slice(0, 1).toUpperCase()}
                   </Text>
                 </View>
               )}
-              <View style={styles.camBadge}>
+              <View style={[styles.camBadge, { backgroundColor: colors.primary }]}>
                 <Ionicons name="camera" size={18} color="#fff" />
               </View>
             </Pressable>
@@ -165,8 +167,8 @@ export default function ProfileScreen() {
                 <ThemedTextInput value={email} editable={false} style={styles.dimInput} />
                 {google ? (
                   <View style={styles.badgeRow}>
-                    <View style={styles.googleBadge}>
-                      <Text style={styles.googleBadgeText}>From Google</Text>
+                    <View style={[styles.googleBadge, { backgroundColor: colors.primaryLight }]}>
+                      <Text style={[styles.googleBadgeText, { color: colors.primary }]}>From Google</Text>
                     </View>
                   </View>
                 ) : null}
@@ -179,7 +181,7 @@ export default function ProfileScreen() {
             disabled={saving}
             style={({ pressed }) => [
               styles.saveBtn,
-              { opacity: saving ? 0.7 : pressed ? 0.92 : 1 },
+              { backgroundColor: colors.primary, opacity: saving ? 0.7 : pressed ? 0.92 : 1 },
             ]}
           >
             <Text style={styles.saveBtnText}>Save Changes</Text>
@@ -208,7 +210,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
-    backgroundColor: '#4F46E5',
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -232,16 +233,14 @@ const styles = StyleSheet.create({
   dimInput: { opacity: 0.85 },
   badgeRow: { flexDirection: 'row', marginTop: 6 },
   googleBadge: {
-    backgroundColor: 'rgba(79, 70, 229, 0.12)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
-  googleBadgeText: { fontSize: 12, fontWeight: '700', color: '#4F46E5' },
+  googleBadgeText: { fontSize: 12, fontWeight: '700' },
   saveBtn: {
     marginHorizontal: 0,
     marginTop: 20,
-    backgroundColor: '#4F46E5',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',

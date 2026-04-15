@@ -126,6 +126,7 @@ export async function getSpendingInsights(
   prevSummary: { total_in: number; total_out: number; net_balance: number; entry_count: number } | null,
   language: string,
   currency: string,
+  entries: any[],
 ): Promise<SpendingInsightsOutcome> {
   void contacts;
   void paymentModes;

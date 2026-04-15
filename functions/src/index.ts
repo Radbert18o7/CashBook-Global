@@ -278,7 +278,13 @@ export const geminiCategorize = onCall(async (request) => {
 export const getSpendingInsights = onCall(async (request) => {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required');
   const uid = request.auth.uid;
-  const data = request.data as { summary?: Record<string, unknown>; categories?: string[] };
+  const data = request.data as { 
+    summary?: Record<string, unknown>; 
+    categories?: string[]; 
+    entries?: any[]; 
+    language?: string; 
+    currency?: string; 
+  };
   const entryCount =
     typeof data.summary?.entry_count === 'number' && Number.isFinite(data.summary.entry_count)
       ? Math.max(0, Math.floor(data.summary.entry_count))
@@ -299,9 +305,29 @@ export const getSpendingInsights = onCall(async (request) => {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: MODEL });
-    const result = await model.generateContent(
-      `Insights JSON: {"insights":[{"id":"1","emoji":"📊","headline":"","detail":"","trend":"flat"}]} Data: ${JSON.stringify(data)}`,
-    );
+    
+    const prompt = `
+      You are a professional financial advisor. Analyze the following spending data and provide 3-5 actionable insights, trends, or budgeting suggestions.
+      
+      User Language: ${data.language ?? 'en'}
+      Currency: ${data.currency ?? 'USD'}
+      
+      Summary:
+      - Total In: ${data.summary?.total_in ?? 0}
+      - Total Out: ${data.summary?.total_out ?? 0}
+      - Net Balance: ${data.summary?.net_balance ?? 0}
+      - Total Entries: ${entryCount}
+      
+      Categories: ${data.categories?.join(', ') ?? 'None'}
+      
+      Recent Transactions:
+      ${data.entries?.map((e: any) => `- ${e.entry_date}: ${e.category_name ?? 'Uncategorized'}, ${e.amount} (${e.type}), ${e.remark ?? ''}`).join('\n')}
+      
+      Return ONLY a JSON object in this format:
+      {"insights": [{"id": "1", "emoji": "📊", "headline": "Concise headline", "detail": "Detailed explanation and actionable advice", "trend": "up" | "down" | "flat"}]}
+    `;
+
+    const result = await model.generateContent(prompt);
     const parsed = parseJsonBlock(result.response.text()) as { insights?: unknown[] };
     return ok({ insights: Array.isArray(parsed.insights) ? parsed.insights : [] });
   } catch (e) {

@@ -167,10 +167,10 @@ export default function ReportsScreen() {
         name: s.name.length > 16 ? `${s.name.slice(0, 14)}…` : s.name,
         population: s.amount,
         color: s.color,
-        legendFontColor: '#64748B',
+        legendFontColor: colors.textSecondary,
         legendFontSize: 12,
       })),
-    [categorySlices],
+    [categorySlices, colors.textSecondary],
   );
 
   async function handleExportPdf() {
@@ -206,15 +206,16 @@ export default function ReportsScreen() {
     setInsightsSkipReason(undefined);
     setAiInsights([]);
     try {
-      const out = await getSpendingInsights(
-        summary,
-        insightCategories,
-        insightContacts,
-        insightPaymentModes,
-        null,
-        i18n.language ?? 'en',
-        currency,
-      );
+       const out = await getSpendingInsights(
+         summary,
+         insightCategories,
+         insightContacts,
+         insightPaymentModes,
+         null,
+         i18n.language ?? 'en',
+         currency,
+         rangeEntries,
+       );
       setAiInsights(out.insights);
       setInsightsSkipReason(out.skipReason);
     } finally {
@@ -238,46 +239,67 @@ export default function ReportsScreen() {
           {t('reports.title')}
         </ThemedText>
 
-        <ThemedText style={styles.sub}>
+        <ThemedText style={[styles.sub, { color: colors.textSecondary }]}>
           {currentBook?.name ?? t('home.noBooksSubtitle')}
         </ThemedText>
 
         <View style={styles.rangeRow}>
           <Pressable
             onPress={() => setRange('today')}
-            style={[styles.rangeBtn, range === 'today' && styles.rangeBtnActive]}
+            style={[
+              styles.rangeBtn,
+              { borderColor: colors.border },
+              range === 'today' && {
+                borderColor: colors.primary,
+                backgroundColor: colors.primaryLight,
+              },
+            ]}
           >
             <ThemedText type="defaultSemiBold">{t('reports.today')}</ThemedText>
           </Pressable>
           <Pressable
             onPress={() => setRange('week')}
-            style={[styles.rangeBtn, range === 'week' && styles.rangeBtnActive]}
+            style={[
+              styles.rangeBtn,
+              { borderColor: colors.border },
+              range === 'week' && {
+                borderColor: colors.primary,
+                backgroundColor: colors.primaryLight,
+              },
+            ]}
           >
             <ThemedText type="defaultSemiBold">{t('reports.thisWeek')}</ThemedText>
           </Pressable>
           <Pressable
             onPress={() => setRange('month')}
-            style={[styles.rangeBtn, range === 'month' && styles.rangeBtnActive]}
+            style={[
+              styles.rangeBtn,
+              { borderColor: colors.border },
+              range === 'month' && {
+                borderColor: colors.primary,
+                backgroundColor: colors.primaryLight,
+              },
+            ]}
           >
             <ThemedText type="defaultSemiBold">{t('reports.thisMonth')}</ThemedText>
           </Pressable>
         </View>
 
-        <View style={styles.card}>
-          <ThemedText style={styles.cardLabel}>{t('home.totalIn')}</ThemedText>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <ThemedText style={[styles.cardLabel, { color: colors.textSecondary }]}>{t('home.totalIn')}</ThemedText>
           <ThemedText style={[styles.cardValue, styles.in]}>
             {formatMoney(summary?.total_in ?? 0)}
           </ThemedText>
         </View>
-        <View style={styles.card}>
-          <ThemedText style={styles.cardLabel}>{t('home.totalOut')}</ThemedText>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <ThemedText style={[styles.cardLabel, { color: colors.textSecondary }]}>{t('home.totalOut')}</ThemedText>
           <ThemedText style={[styles.cardValue, styles.out]}>
             {formatMoney(summary?.total_out ?? 0)}
           </ThemedText>
         </View>
-        <View style={styles.card}>
-          <ThemedText style={styles.cardLabel}>{t('home.netBalance')}</ThemedText>
-          <ThemedText style={styles.cardValue}>{formatMoney(summary?.net_balance ?? 0)}</ThemedText>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <ThemedText style={[styles.cardLabel, { color: colors.textSecondary }]}>{t('home.netBalance')}</ThemedText>
+          <ThemedText style={[styles.cardValue, { color: colors.textPrimary }]}>{formatMoney(summary?.net_balance ?? 0)}</ThemedText>
         </View>
 
         <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
@@ -286,7 +308,7 @@ export default function ReportsScreen() {
         {loadingEntries ? (
           <ActivityIndicator style={styles.chartSpinner} />
         ) : pieData.length === 0 ? (
-          <ThemedText style={styles.muted}>{t('entry.noEntries')}</ThemedText>
+          <ThemedText style={[styles.muted, { color: colors.textTertiary }]}>{t('entry.noEntries')}</ThemedText>
         ) : (
           <CategoryBreakdownVisualization
             categorySlices={categorySlices}
@@ -302,7 +324,7 @@ export default function ReportsScreen() {
           {t('reports.aiInsights')}
         </ThemedText>
         {summary && summary.entry_count < MIN_ENTRIES_FOR_AI_INSIGHTS ? (
-          <ThemedText style={styles.muted}>
+          <ThemedText style={[styles.muted, { color: colors.textTertiary }]}>
             {t('reports.insightsNeedMoreEntries', { count: MIN_ENTRIES_FOR_AI_INSIGHTS })}
           </ThemedText>
         ) : null}
@@ -325,10 +347,12 @@ export default function ReportsScreen() {
           )}
         </Pressable>
         {insightsRequested && !insightsLoading && insightsSkipReason ? (
-          <ThemedText style={styles.muted}>{skipReasonMessage(t, insightsSkipReason)}</ThemedText>
+          <ThemedText style={[styles.muted, { color: colors.textTertiary }]}>
+            {skipReasonMessage(t, insightsSkipReason)}
+          </ThemedText>
         ) : null}
         {insightsRequested && !insightsLoading && !insightsSkipReason && aiInsights.length === 0 ? (
-          <ThemedText style={styles.muted}>{t('reports.noInsights')}</ThemedText>
+          <ThemedText style={[styles.muted, { color: colors.textTertiary }]}>{t('reports.noInsights')}</ThemedText>
         ) : null}
         {aiInsights.length > 0 ? (
           <View style={styles.insightsList}>
@@ -339,7 +363,12 @@ export default function ReportsScreen() {
               >
                 <ThemedText style={styles.insightEmoji}>{row.emoji}</ThemedText>
                 <View style={styles.insightBody}>
-                  <ThemedText type="defaultSemiBold">{row.headline}</ThemedText>
+                   <View style={styles.insightHeader}>
+                     <ThemedText type="defaultSemiBold">{row.headline}</ThemedText>
+                     <ThemedText style={[styles.trendIndicator, { color: row.trend === 'up' ? '#F43F5E' : row.trend === 'down' ? '#10B981' : colors.textSecondary }]}>
+                       {row.trend === 'up' ? '📈' : row.trend === 'down' ? '📉' : '➡️'}
+                     </ThemedText>
+                   </View>
                   {row.detail ? <ThemedText style={styles.insightDetail}>{row.detail}</ThemedText> : null}
                 </View>
               </View>
@@ -349,13 +378,21 @@ export default function ReportsScreen() {
 
         <Pressable
           onPress={() => void handleExportPdf()}
-          style={({ pressed }) => [styles.exportBtn, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.exportBtn,
+            { backgroundColor: colors.primary },
+            pressed && styles.pressed,
+          ]}
           disabled={exporting}
+          accessibilityRole="button"
+          accessibilityLabel={t('reports.exportPdf')}
         >
           {exporting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <ThemedText type="defaultSemiBold">{t('reports.exportPdf')}</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.exportBtnText}>
+              {t('reports.exportPdf')}
+            </ThemedText>
           )}
         </Pressable>
 
@@ -369,31 +406,28 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: 16, gap: 12, paddingBottom: 32 },
   title: { textAlign: 'left', marginTop: 8 },
-  sub: { opacity: 0.75 },
+  sub: {},
   rangeRow: { flexDirection: 'row', gap: 10 },
   rangeBtn: {
     flex: 1,
     borderRadius: 12,
     paddingVertical: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(127,127,127,0.35)',
     alignItems: 'center',
   },
-  rangeBtnActive: { borderColor: '#4F46E5', backgroundColor: 'rgba(79,70,229,0.12)' },
   card: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(127,127,127,0.25)',
     padding: 14,
     gap: 6,
   },
-  cardLabel: { opacity: 0.75 },
+  cardLabel: {},
   cardValue: { fontSize: 28, fontWeight: '800' },
   in: { color: '#10B981' },
   out: { color: '#F43F5E' },
   sectionTitle: { marginTop: 8 },
   chartSpinner: { marginVertical: 24 },
-  muted: { opacity: 0.7 },
+  muted: {},
   insightsBtn: {
     borderRadius: 12,
     paddingVertical: 12,
@@ -414,13 +448,15 @@ const styles = StyleSheet.create({
   },
   insightEmoji: { fontSize: 22, lineHeight: 26 },
   insightBody: { flex: 1, gap: 4 },
+  insightHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  trendIndicator: { fontSize: 16, marginLeft: 8 },
   insightDetail: { opacity: 0.85, fontSize: 14 },
   exportBtn: {
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#4F46E5',
     marginTop: 2,
   },
+  exportBtnText: { color: '#FFFFFF' },
   pressed: { opacity: 0.9 },
 });

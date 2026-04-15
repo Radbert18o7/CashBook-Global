@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GoogleSignInButton, isGoogleOAuthConfigured } from '@/components/auth/GoogleSignInButton';
 import { signInAsGuest } from '@/services/authService';
 import { getFirebaseAuthMessage } from '@/utils/authErrors';
+import { primitive } from '@/theme/designTokens';
 
 const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL ?? 'https://www.cashbookglobal.app/terms';
 const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? 'https://www.cashbookglobal.app/privacy';
@@ -42,9 +43,11 @@ export default function WelcomeScreen() {
     }
   }
 
+  const shellBg = primitive.slate[900];
+
   return (
     <ScrollView
-      contentContainerStyle={[styles.scroll, { paddingTop: Math.max(insets.top, 12) }]}
+      contentContainerStyle={[styles.scroll, { paddingTop: Math.max(insets.top, 12), backgroundColor: shellBg }]}
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.top}>
@@ -96,7 +99,6 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
-    backgroundColor: '#0F172A',
     paddingBottom: 40,
   },
   top: {
@@ -121,7 +123,7 @@ const styles = StyleSheet.create({
   tagline: {
     marginTop: 8,
     fontSize: 16,
-    color: '#94A3B8',
+    color: primitive.slate[400],
     textAlign: 'center',
   },
   bottom: {
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#334155',
+    borderColor: primitive.slate[700],
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
@@ -147,19 +149,19 @@ const styles = StyleSheet.create({
   guest: {
     marginTop: 12,
     textAlign: 'center',
-    color: '#64748B',
+    color: primitive.slate[500],
     fontSize: 14,
     textDecorationLine: 'underline',
   },
   legal: {
     marginTop: 20,
     textAlign: 'center',
-    color: '#475569',
+    color: primitive.slate[500],
     fontSize: 12,
     lineHeight: 18,
   },
-  link: { color: '#94A3B8', textDecorationLine: 'underline' },
+  link: { color: primitive.slate[400], textDecorationLine: 'underline' },
   err: { color: '#F87171', textAlign: 'center', marginBottom: 4 },
-  oauthHint: { color: '#94A3B8', textAlign: 'center', fontSize: 13 },
+  oauthHint: { color: primitive.slate[400], textAlign: 'center', fontSize: 13 },
   pressed: { opacity: 0.88 },
 });

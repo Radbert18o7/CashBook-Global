@@ -19,6 +19,8 @@ import { useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useEntryStore } from '@/store/entryStore';
 import { getEntry, updateEntry } from '@/services/entryService';
+import { getCategories, type Category } from '@/services/categoryService';
+import { getPaymentModes, type PaymentMode } from '@/services/paymentModeService';
 import type { Entry, EntryType } from '@/utils/models';
 
 function entryDateLabel(entry: Entry | undefined): string | null {
@@ -65,7 +67,12 @@ export default function EditEntryScreen() {
   const [amountText, setAmountText] = useState('');
   const [contactName, setContactName] = useState('');
   const [remark, setRemark] = useState('');
+  const [category, setCategory] = useState<Category | null>(null);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [saving, setSaving] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<'idle' | 'loading' | 'missing' | 'error'>('idle');
   const hydratedRef = useRef(false);
@@ -97,6 +104,23 @@ export default function EditEntryScreen() {
   }, [bookId, entryId, entry, addEntryToStore]);
 
   useEffect(() => {
+    if (!bookId) return;
+    void (async () => {
+      try {
+        const [cats, modes] = await Promise.all([
+          getCategories(bookId),
+          getPaymentModes(bookId),
+        ]);
+        setCategories(cats);
+        setPaymentModes(modes);
+      } catch (e) {
+        setError('Failed to load categories and payment modes');
+      }
+    })();
+  }, [bookId]);
+
+
+  useEffect(() => {
     if (!entry) {
       hydratedRef.current = false;
       return;
@@ -106,7 +130,9 @@ export default function EditEntryScreen() {
     setAmountText(String(entry.amount));
     setContactName(entry.contact_name ?? '');
     setRemark(entry.remark ?? '');
-  }, [entry]);
+    setCategory(categories.find((c) => c.id === entry.category_id) ?? null);
+    setPaymentMode(paymentModes.find((p) => p.id === entry.payment_mode_id) ?? null);
+  }, [entry, categories, paymentModes]);
 
   const type: EntryType = entry?.type === 'CASH_OUT' ? 'CASH_OUT' : 'CASH_IN';
 
@@ -133,21 +159,30 @@ export default function EditEntryScreen() {
     try {
       const contact_name = contactName.trim() || null;
       const remarkVal = remark.trim() || null;
-      await updateEntry(
-        bookId,
-        entryId,
-        {
-          amount,
-          contact_name,
-          remark: remarkVal,
-        },
-        user.uid,
-      );
-      updateEntryInStore(entryId, {
-        amount,
-        contact_name,
-        remark: remarkVal,
-      });
+       await updateEntry(
+         bookId,
+         entryId,
+         {
+           amount,
+           contact_name,
+           remark: remarkVal,
+            category_id: category?.id,
+            category_name: category?.name,
+            payment_mode_id: paymentMode?.id,
+            payment_mode_name: paymentMode?.name,
+         },
+         user.uid,
+       );
+       updateEntryInStore(entryId, {
+         amount,
+         contact_name,
+         remark: remarkVal,
+          category_id: category?.id,
+          category_name: category?.name,
+          payment_mode_id: paymentMode?.id,
+          payment_mode_name: paymentMode?.name,
+       });
+
       router.back();
     } catch (e: any) {
       setError(e?.message ?? 'Failed to update entry');
@@ -255,9 +290,23 @@ export default function EditEntryScreen() {
             />
           </View>
 
-          <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>Details</ThemedText>
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <ThemedText style={[styles.fieldLabel, { color: colors.textPrimary }]}>Contact</ThemedText>
+           <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>Details</ThemedText>
+           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+             <EntrySelector
+               label="Category"
+               value={category}
+               options={categories}
+               onSelect={setCategory}
+               colors={colors}
+             />
+             <EntrySelector
+               label="Payment Mode"
+               value={paymentMode}
+               options={paymentModes}
+               onSelect={setPaymentMode}
+               colors={colors}
+             />
+             <ThemedText style={[styles.fieldLabel, { color: colors.textPrimary }]}>Contact</ThemedText>
             <ThemedText style={[styles.helper, { color: colors.textTertiary }]}>Optional</ThemedText>
             <ThemedTextInput
               value={contactName}
@@ -311,6 +360,72 @@ export default function EditEntryScreen() {
   );
 }
 
+function EntrySelector({
+  label,
+  value,
+  options,
+  onSelect,
+  colors,
+}: {
+  label: string;
+  value: { id: string; name: string } | null;
+  options: { id: string; name: string }[];
+  onSelect: (val: { id: string; name: string }) => void;
+  colors: any;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!isOpen) {
+    return (
+      <Pressable
+        onPress={() => setIsOpen(true)}
+        style={({ pressed }) => [
+          styles.selectorBtn,
+          { borderColor: colors.border },
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={styles.selectorRow}>
+          <ThemedText style={[styles.fieldLabel, { color: colors.textPrimary }]}>{label}</ThemedText>
+          <ThemedText style={[styles.selectorValue, { color: value ? colors.textPrimary : colors.textTertiary }]}>
+            {value ? value.name : 'Select...'}
+          </ThemedText>
+        </View>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={[styles.selectorDropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <ScrollView style={styles.selectorList}>
+        {options.map((opt) => (
+          <Pressable
+            key={opt.id}
+            onPress={() => {
+              onSelect(opt);
+              setIsOpen(false);
+            }}
+            style={({ pressed }) => [
+              styles.selectorItem,
+              pressed && { backgroundColor: colors.primaryLight },
+              value?.id === opt.id && { backgroundColor: colors.primaryLight },
+            ]}
+          >
+            <ThemedText style={{ color: colors.textPrimary }}>{opt.name}</ThemedText>
+            {value?.id === opt.id && <ThemedText style={{ color: colors.primary }}>✓</ThemedText>}
+          </Pressable>
+        ))}
+        {options.length === 0 && (
+          <ThemedText style={[styles.selectorEmpty, { color: colors.textTertiary }]}>No options available</ThemedText>
+        )}
+      </ScrollView>
+      <Pressable onPress={() => setIsOpen(false)} style={styles.selectorCloseBtn}>
+        <ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>Close</ThemedText>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
@@ -334,6 +449,49 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 14,
     gap: 4,
+  },
+  selectorBtn: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    marginBottom: 12,
+  },
+  selectorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectorValue: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  selectorDropdown: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxHeight: 300,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  selectorList: {
+    maxHeight: 250,
+  },
+  selectorItem: {
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  selectorEmpty: {
+    padding: 14,
+    textAlign: 'center',
+  },
+  selectorCloseBtn: {
+    padding: 12,
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
   fieldLabel: { fontSize: 15, fontWeight: '600', marginTop: 2 },
   fieldLabelSpaced: { marginTop: 14 },

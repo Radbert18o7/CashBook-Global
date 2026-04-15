@@ -19,6 +19,7 @@ import { SettingsMenuItem } from '@/components/settings/SettingsMenuItem';
 import { SettingsSectionHeader } from '@/components/settings/SettingsSectionHeader';
 import { SettingsSwitchRow } from '@/components/settings/SettingsSwitchRow';
 import { ThemedTextInput } from '@/components/themed-text-input';
+import { useColors } from '@/hooks/useColors';
 import { useSettingsTheme } from '@/hooks/useSettingsTheme';
 import {
   getSettingBool,
@@ -40,6 +41,7 @@ export default function AppSettingsScreen() {
   const { i18n } = useTranslation();
   const router = useRouter();
   const theme = useSettingsTheme();
+  const colors = useColors();
   const uiTheme = useUiStore((s) => s.theme);
   const setUiTheme = useUiStore((s) => s.setTheme);
   const uiLang = useUiStore((s) => s.language);
@@ -131,7 +133,7 @@ export default function AppSettingsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.screenBg }]}>
-      <ScreenHeader title="App Settings" theme={theme} />
+      <ScreenHeader title="App Settings" theme={theme} colors={colors} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <SettingsSectionHeader title="Appearance" theme={theme} />
         <SettingsCard theme={theme}>
@@ -280,7 +282,7 @@ export default function AppSettingsScreen() {
                 <Text style={{ color: theme.subtitle }}>Cancel</Text>
               </Pressable>
               <Pressable onPress={() => void confirmPin()} style={styles.modalBtn}>
-                <Text style={{ color: '#4F46E5', fontWeight: '700' }}>Save</Text>
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>Save</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -303,7 +305,7 @@ export default function AppSettingsScreen() {
                   }}
                 >
                   <Text style={{ color: theme.title, fontSize: 16 }}>{h}:00</Text>
-                  {reminderHour === h ? <Text style={{ color: '#4F46E5' }}>✓</Text> : null}
+                  {reminderHour === h ? <Text style={{ color: colors.primary }}>✓</Text> : null}
                 </Pressable>
               ))}
             </ScrollView>

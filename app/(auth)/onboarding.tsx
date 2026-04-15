@@ -10,7 +10,9 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useColors } from '@/hooks/useColors';
 import { useAuthStore } from '@/store/authStore';
 import { useBusinessStore } from '@/store/businessStore';
 import {
@@ -27,6 +29,8 @@ function firstName(full: string): string {
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const colors = useColors();
   const user = useAuthStore((s) => s.user);
   const { setBusinesses, setCurrentBusiness } = useBusinessStore();
 
@@ -92,33 +96,52 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <View style={styles.root}>
-      <Text style={styles.welcome}>
+    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top + 12 }]}>
+      <Text style={[styles.welcome, { color: colors.textPrimary }]}>
         Welcome, {firstName(user?.name ?? 'there')}!
       </Text>
-      <Text style={styles.sub}>Let&apos;s set up your business</Text>
+      <Text style={[styles.sub, { color: colors.textSecondary }]}>Let&apos;s set up your business</Text>
 
-      <Text style={styles.label}>Business name</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>Business name</Text>
       <TextInput
         value={businessName}
         onChangeText={setBusinessName}
         placeholder="Your business name"
-        placeholderTextColor="#64748B"
-        style={styles.input}
+        placeholderTextColor={colors.textTertiary}
+        style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
       />
 
-      <Text style={styles.label}>Currency</Text>
-      <Pressable style={styles.currencyRow} onPress={() => setCurrencyOpen(true)}>
-        <Text style={styles.currencyText}>{currencyLabel}</Text>
-        <Text style={styles.chev}>›</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>Currency</Text>
+      <Pressable
+        style={[
+          styles.currencyRow,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+        onPress={() => setCurrencyOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Choose currency"
+      >
+        <Text style={[styles.currencyText, { color: colors.textPrimary }]}>{currencyLabel}</Text>
+        <Text style={[styles.chev, { color: colors.textTertiary }]}>›</Text>
       </Pressable>
 
-      {err ? <Text style={styles.err}>{err}</Text> : null}
+      {err ? (
+        <Text style={[styles.err, { color: colors.danger }]} accessibilityLiveRegion="polite">
+          {err}
+        </Text>
+      ) : null}
 
       <Pressable
-        style={[styles.cta, busy && styles.ctaDisabled]}
+        style={({ pressed }) => [
+          styles.cta,
+          { backgroundColor: colors.primary },
+          busy && styles.ctaDisabled,
+          pressed && !busy && styles.ctaPressed,
+        ]}
         onPress={() => void submit()}
         disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={busy ? 'Saving' : 'Continue to app'}
       >
         {busy ? (
           <ActivityIndicator color="#fff" />
@@ -130,13 +153,16 @@ export default function OnboardingScreen() {
       <Modal visible={currencyOpen} animationType="slide" transparent onRequestClose={() => setCurrencyOpen(false)}>
         <View style={styles.modalRoot}>
           <Pressable style={styles.modalBackdrop} onPress={() => setCurrencyOpen(false)} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <TextInput
               value={currencyQ}
               onChangeText={setCurrencyQ}
               placeholder="Search currency"
-              placeholderTextColor="#64748B"
-              style={styles.search}
+              placeholderTextColor={colors.textTertiary}
+              style={[
+                styles.search,
+                { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.border },
+              ]}
             />
             <FlatList
               data={filteredCurrencies}
@@ -144,14 +170,14 @@ export default function OnboardingScreen() {
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <Pressable
-                  style={styles.curItem}
+                  style={[styles.curItem, { borderBottomColor: colors.border }]}
                   onPress={() => {
                     setCurrency(item.code);
                     setCurrencyOpen(false);
                     setCurrencyQ('');
                   }}
                 >
-                  <Text style={styles.curItemText}>
+                  <Text style={[styles.curItemText, { color: colors.textPrimary }]}>
                     {item.code} · {item.name}
                   </Text>
                 </Pressable>
@@ -167,44 +193,40 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0F172A',
     paddingHorizontal: 24,
-    paddingTop: 56,
+    paddingBottom: 24,
   },
-  welcome: { color: '#fff', fontSize: 28, fontWeight: '800' },
-  sub: { color: '#94A3B8', fontSize: 16, marginTop: 8, marginBottom: 28 },
-  label: { color: '#94A3B8', fontSize: 13, marginBottom: 8, marginTop: 12 },
+  welcome: { fontSize: 28, fontWeight: '800' },
+  sub: { fontSize: 16, marginTop: 8, marginBottom: 20 },
+  label: { fontSize: 13, marginBottom: 8, marginTop: 12, fontWeight: '600' },
   input: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#0F172A',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   currencyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  currencyText: { color: '#fff', fontSize: 16, flex: 1 },
-  chev: { color: '#94A3B8', fontSize: 22 },
-  err: { color: '#F87171', marginTop: 12 },
+  currencyText: { fontSize: 16, flex: 1 },
+  chev: { fontSize: 22 },
+  err: { marginTop: 12 },
   cta: {
     marginTop: 32,
-    backgroundColor: '#4F46E5',
     height: 56,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ctaDisabled: { opacity: 0.75 },
+  ctaPressed: { opacity: 0.92 },
   ctaText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   modalBackdrop: {
@@ -213,18 +235,16 @@ const styles = StyleSheet.create({
   },
   sheet: {
     maxHeight: '70%',
-    backgroundColor: '#1E293B',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 16,
   },
   search: {
-    backgroundColor: '#0F172A',
     borderRadius: 10,
     padding: 12,
-    color: '#fff',
     marginBottom: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  curItem: { paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#334155' },
-  curItemText: { color: '#F1F5F9', fontSize: 16 },
+  curItem: { paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  curItemText: { fontSize: 16 },
 });

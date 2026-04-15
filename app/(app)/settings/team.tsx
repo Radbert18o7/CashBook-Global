@@ -20,6 +20,7 @@ import { ThemedTextInput } from '@/components/themed-text-input';
 import { firebaseFunctions } from '@/services/firebase';
 import { getBusinessMembers, removeMember, updateMemberRole } from '@/services/businessService';
 import { getUserDisplay } from '@/services/userService';
+import { useColors } from '@/hooks/useColors';
 import { useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useBusinessStore } from '@/store/businessStore';
@@ -35,6 +36,7 @@ type Row = {
 export default function TeamScreen() {
   const { t } = useTranslation();
   const theme = useSettingsTheme();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { currentBusiness } = useBusinessStore();
@@ -145,12 +147,12 @@ export default function TeamScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.screenBg }]}>
-      <ScreenHeader title="Business Team" theme={theme} />
+      <ScreenHeader title="Business Team" theme={theme} colors={colors} />
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: 120 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.hero}>
+        <View style={[styles.hero, { backgroundColor: colors.primary }]}>
           <Ionicons name="people" size={48} color="#fff" style={{ opacity: 0.95 }} />
           <Text style={styles.heroTitle}>Manage Your Team</Text>
           <Text style={styles.heroSub}>Add members and assign roles</Text>
@@ -191,8 +193,8 @@ export default function TeamScreen() {
               key={row.userId}
               style={[styles.memberRow, { backgroundColor: theme.cardBg, borderColor: theme.border }]}
             >
-              <View style={styles.avatar}>
-                <Text style={styles.avatarTxt}>{initials(row.name)}</Text>
+              <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
+                <Text style={[styles.avatarTxt, { color: colors.primary }]}>{initials(row.name)}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.memName, { color: theme.title }]}>{row.name}</Text>
@@ -232,7 +234,7 @@ export default function TeamScreen() {
         onPress={() => setSheetOpen(true)}
         style={[
           styles.fab,
-          { bottom: 24 + insets.bottom, backgroundColor: '#4F46E5' },
+          { bottom: 24 + insets.bottom, backgroundColor: colors.primary },
         ]}
       >
         <Ionicons name="person-add-outline" size={26} color="#fff" />
@@ -259,7 +261,10 @@ export default function TeamScreen() {
                 style={[
                   styles.chip,
                   { borderColor: theme.border },
-                  inviteRole === 'ADMIN' && styles.chipOn,
+                  inviteRole === 'ADMIN' && {
+                    borderColor: colors.primary,
+                    backgroundColor: colors.primaryLight,
+                  },
                 ]}
               >
                 <Text style={{ color: theme.title }}>{t('team.roleAdmin')}</Text>
@@ -269,14 +274,17 @@ export default function TeamScreen() {
                 style={[
                   styles.chip,
                   { borderColor: theme.border },
-                  inviteRole === 'EMPLOYEE' && styles.chipOn,
+                  inviteRole === 'EMPLOYEE' && {
+                    borderColor: colors.primary,
+                    backgroundColor: colors.primaryLight,
+                  },
                 ]}
               >
                 <Text style={{ color: theme.title }}>{t('team.roleEmployee')}</Text>
               </Pressable>
             </View>
             <Pressable
-              style={[styles.sendBtn, sending && { opacity: 0.7 }]}
+              style={[styles.sendBtn, { backgroundColor: colors.primary }, sending && { opacity: 0.7 }]}
               disabled={sending}
               onPress={() => void sendInvite()}
             >
@@ -293,7 +301,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { padding: 16 },
   hero: {
-    backgroundColor: '#4F46E5',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
@@ -328,11 +335,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(79,70,229,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarTxt: { fontWeight: '800', color: '#4F46E5' },
+  avatarTxt: { fontWeight: '800' },
   memName: { fontSize: 15, fontWeight: '700' },
   memEmail: { fontSize: 13, marginTop: 2 },
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, maxWidth: 110 },
@@ -377,9 +383,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },
-  chipOn: { borderColor: '#4F46E5', backgroundColor: 'rgba(79,70,229,0.1)' },
   sendBtn: {
-    backgroundColor: '#4F46E5',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

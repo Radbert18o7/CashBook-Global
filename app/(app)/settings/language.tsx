@@ -10,6 +10,7 @@ import {
   setAppLanguage,
   supportedLocales,
 } from '@/i18n';
+import { useColors } from '@/hooks/useColors';
 import { useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { useUiStore } from '@/store/uiStore';
 
@@ -18,6 +19,7 @@ const indianSet = new Set<string>(indianLocales);
 export default function LanguagePickerScreen() {
   const { t, i18n } = useTranslation();
   const theme = useSettingsTheme();
+  const colors = useColors();
   const setUiLanguage = useUiStore((s) => s.setLanguage);
   const uiLang = useUiStore((s) => s.language);
 
@@ -44,7 +46,7 @@ export default function LanguagePickerScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.screenBg }]}>
-      <ScreenHeader title={t('settings.language')} theme={theme} />
+      <ScreenHeader title={t('settings.language')} theme={theme} colors={colors} />
       <SectionList
         sections={sections}
         keyExtractor={(item) => item}
@@ -72,7 +74,7 @@ export default function LanguagePickerScreen() {
               ) : (
                 <Text style={[styles.rowTitle, { color: theme.title }]}>{item}</Text>
               )}
-              {selected ? <Text style={styles.check}>✓</Text> : null}
+              {selected ? <Text style={[styles.check, { color: colors.primary }]}>✓</Text> : null}
             </Pressable>
           );
         }}
@@ -96,5 +98,5 @@ const styles = StyleSheet.create({
   },
   rowTitle: { fontSize: 16, fontWeight: '600' },
   rowSub: { fontSize: 13, marginTop: 2 },
-  check: { color: '#4F46E5', fontSize: 18, fontWeight: '800' },
+  check: { fontSize: 18, fontWeight: '800' },
 });

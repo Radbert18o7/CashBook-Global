@@ -9,6 +9,7 @@ import { ScreenHeader } from '@/components/common/ScreenHeader';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
+import { useColors } from '@/hooks/useColors';
 import { useSettingsTheme } from '@/hooks/useSettingsTheme';
 import { firebaseFunctions } from '@/services/firebase';
 import { signOut } from '@/services/authService';
@@ -30,6 +31,7 @@ export default function PrivacyScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const theme = useSettingsTheme();
+  const colors = useColors();
   const clearUser = useAuthStore((s) => s.clearUser);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -101,13 +103,13 @@ export default function PrivacyScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: theme.screenBg }]}>
-      <ScreenHeader title={t('settings.privacy')} theme={theme} />
+      <ScreenHeader title={t('settings.privacy')} theme={theme} colors={colors} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.card}>
           <ThemedText type="defaultSemiBold">{t('privacyScreen.exportTitle')}</ThemedText>
           <ThemedText style={styles.muted}>{t('privacyScreen.exportDesc')}</ThemedText>
           <Pressable
-            style={[styles.btn, exporting && { opacity: 0.75 }]}
+            style={[styles.btn, { backgroundColor: colors.primary }, exporting && { opacity: 0.75 }]}
             disabled={exporting}
             onPress={() => void requestExport()}
           >
@@ -130,12 +132,12 @@ export default function PrivacyScreen() {
         </View>
 
         <Pressable style={styles.link} onPress={() => void openUrl(PRIVACY_URL)}>
-          <ThemedText type="defaultSemiBold" style={{ color: '#4F46E5' }}>
+          <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
             {t('privacyScreen.openPrivacy')}
           </ThemedText>
         </Pressable>
         <Pressable style={styles.link} onPress={() => void openUrl(TERMS_URL)}>
-          <ThemedText type="defaultSemiBold" style={{ color: '#4F46E5' }}>
+          <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
             {t('privacyScreen.openTerms')}
           </ThemedText>
         </Pressable>
@@ -192,7 +194,6 @@ const styles = StyleSheet.create({
   muted: { opacity: 0.8, lineHeight: 20 },
   btn: {
     marginTop: 8,
-    backgroundColor: '#4F46E5',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
